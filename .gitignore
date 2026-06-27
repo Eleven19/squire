@@ -4,3 +4,13 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+# Reference repositories for agent exploration (managed by reference-repos skill)
+.ref/
+
+# Agent worktrees and state
+.worktrees/
+.omc/
+
+# Agent dev work product (research/specs/plans) — local only, never source-controlled
+.dev/

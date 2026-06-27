@@ -1,0 +1,35 @@
+# Normalize all text to LF in the repo; check out LF by default.
+* text=auto eol=lf
+
+# Shell launchers MUST stay LF or they break on macOS/Linux.
+*.sh        text eol=lf
+ref-repos   text eol=lf
+mill        text eol=lf
+
+# Windows batch launchers MUST be CRLF.
+*.bat       text eol=crlf
+
+# Source / config — explicit text, LF.
+*.scala     text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.mdc       text eol=lf
+
+# Symlinks (.agents/.claude/.cursor/.devin skill dirs) are stored as mode-120000
+# blobs and git handles them automatically — do NOT mark them text, it corrupts
+# the link target. They only materialize as real symlinks when the clone has
+# core.symlinks=true (auto-detected by filesystem; on Windows clone with
+#   git clone -c core.symlinks=true <url>
+# or the link files appear as plain text files holding the target path).
+# core.symlinks is git config, not a gitattributes setting — it cannot be forced
+# from the repo.
+.agents/skills/*  -text
+.claude/skills/*  -text
+.cursor/skills/*  -text
+.devin/skills/*   -text
+
+# Binary artifacts (defensive; these are gitignored anyway).
+*.class     binary
+*.tasty     binary
