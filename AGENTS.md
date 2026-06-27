@@ -75,7 +75,20 @@ Rules:
 - Put research in `research/`, specs in `specs/`, plans in `plans/` — never loose at the
   effort root.
 - Never `git add` anything under `.dev/`. If a `.dev/` artifact deserves to be kept, copy
-  the finished version into a real, committed location (e.g. `docs/`) deliberately.
+  the finished version into a real, committed location deliberately.
+
+### Tool/skill artifact placement — OVERRIDE
+
+This `.dev/` layout **overrides** any tool's or skill's default artifact location. In
+particular, **superpowers** (and any brainstorming/planning/research skill) MUST write to
+`.dev/`, NOT to a root `docs/` folder:
+
+- design specs (superpowers brainstorming) → `.dev/<type>/<slug>/specs/`
+- implementation plans (superpowers writing-plans) → `.dev/<type>/<slug>/plans/`
+- research/analyses → `.dev/<type>/<slug>/research/`
+
+Do not create or commit a `docs/superpowers/` tree. If a design/plan becomes a durable
+deliverable, promote it into a real committed location on purpose.
 
 ## Conventions
 
