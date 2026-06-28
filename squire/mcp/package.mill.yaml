@@ -1,0 +1,5 @@
+extends: millbuild.SquireModule
+moduleDeps: [build.squire.core]
+mvnDeps:
+- io.getkyo::kyo-mcp:1.0.0-RC4+55-87bb088c-SNAPSHOT
+mainClass: squire.mcp.Main
