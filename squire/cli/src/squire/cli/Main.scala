@@ -1,15 +1,11 @@
 package squire.cli
 
-import caseapp.*
-import kyo.*
-import squire.core.Squire
+import caseapp.core.app.{Command, CommandsEntryPoint}
 
-final case class CliOptions(
-    @Name("name") name: String = "world"
-)
-
-object Main extends KyoCaseApp[CliOptions]:
-  run { opts =>
-    Console.printLine(Squire.greeting(opts.name))
-  }
+/** squire's single CLI entrypoint. Subcommands include the MCP server (`mcp`)
+  * and ordinary CLI tools (`greet`, …). */
+object Main extends CommandsEntryPoint:
+  def progName: String          = "squire"
+  override def description       = "squire — MCP server and CLI tools"
+  def commands: Seq[Command[?]] = Seq(GreetCommand, McpCommand, SetupCommand)
 end Main

@@ -120,7 +120,7 @@ squire is functional-first and leans on **kyo** as its standard library.
 - Scala 3.8.4. kyo resolved from `https://central.sonatype.com/repository/maven-snapshots/`,
   pinned to an exact dynver snapshot string (kyo's snapshot `maven-metadata.xml` can be
   stale — never rely on it to pick "latest").
-- Common tasks: `./mill resolve _`, `./mill squire.cli.run`, `./mill squire.mcp.run`,
+- Common tasks: `./mill resolve _`, `./mill squire.cli.run greet`, `./mill squire.cli.run mcp`,
   `./mill __.test`.
 - The generated `dist/` tree and `.claude-plugin/marketplace.json` are checked in and
   must stay in sync with `skills/` — regenerate with `./mill skills.generateAll`. CI
