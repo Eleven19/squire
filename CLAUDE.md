@@ -7,8 +7,7 @@ Claude-specific additions or overrides in this file.
 
 ## Claude-specific
 
-- The `reference-repos` skill is also packaged as a Claude Code plugin in this
-  marketplace. In this repo it auto-loads from `.claude/skills/reference-repos`
-  (a symlink to the canonical `plugins/reference-repos/skills/reference-repos`).
+- The `reference-repos` skill is packaged as a Claude Code plugin in this marketplace.
+  The plugin is generated into `dist/plugins/reference-repos/` by `./mill skills.generateAll`.
 - Install it elsewhere via: `/plugin marketplace add Eleven19/squire` then
   `/plugin install reference-repos@squire`.

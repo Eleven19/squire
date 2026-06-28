@@ -12,23 +12,30 @@ same skills are exposed to every supported agent harness from one canonical sour
 
 ## Skills
 
+Skill source of truth lives in `skills/<name>/`: `skill.yaml` (descriptor) + `src/`
+(shared body) + optional `src-<harness>/` overlays (Mill cross-platform style; a
+harness-specific file wins over the shared `src/` file on collision).
+
+Run `./mill skills.generateAll` to (re)generate the committed product: per-harness
+adapters under `dist/`, plus the root `.claude-plugin/marketplace.json` index. Generated
+files carry a "do not edit" header — never hand-edit them; edit `skills/` source and
+regenerate.
+
 ### reference-repos
 
 Clone and manage local reference repositories under `.ref/` for source exploration and
 published-library context, with a pinned YAML manifest (`.ref/manifest.yaml`) and
 artifact hints.
 
-**Canonical source:** `plugins/reference-repos/skills/reference-repos/SKILL.md`
-(read it for the full command reference and workflows). Every harness reaches it via a
-symlink (`.agents/skills/`, `.claude/skills/`, `.cursor/skills/`, `.devin/skills/`) or
-a pointer adapter (`.cursor/rules/`, `.github/prompts/`, `.windsurf/workflows/`).
+**Canonical source:** `skills/reference-repos/src/SKILL.md` (read it for the full
+command reference and workflows). Generated harness adapters live under `dist/`.
 
 **How to run it (any harness):** the skill ships a self-contained launcher. From the
 repo root:
 
 ```bash
-.agents/skills/reference-repos/ref-repos <command> [args]   # mac/linux
-.agents/skills/reference-repos/ref-repos.bat <command>      # windows
+skills/reference-repos/src/ref-repos <command> [args]   # mac/linux
+skills/reference-repos/src/ref-repos.bat <command>      # windows
 ```
 
 The launcher resolves the project root via git, so it works from any subdirectory.
@@ -115,10 +122,14 @@ squire is functional-first and leans on **kyo** as its standard library.
   stale — never rely on it to pick "latest").
 - Common tasks: `./mill resolve _`, `./mill squire.cli.run`, `./mill squire.mcp.run`,
   `./mill __.test`.
+- The generated `dist/` tree and `.claude-plugin/marketplace.json` are checked in and
+  must stay in sync with `skills/` — regenerate with `./mill skills.generateAll`. CI
+  (`codegen-idempotency` workflow) fails on drift via `git diff --exit-code dist
+  .claude-plugin/marketplace.json`.
 
 ## Conventions
 
 - `.ref/`, `.omc/`, `.worktrees/`, `.dev/` are agent-scratch and gitignored. Do not commit them.
 - Keep shared guidance HERE. Put only harness-specific overrides in that harness's file.
 - Validate plugin/marketplace manifests before publishing:
-  `claude plugin validate .` and `claude plugin validate ./plugins/<name>`.
+  `claude plugin validate .` and `claude plugin validate ./dist/plugins/<name>`.
