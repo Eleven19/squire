@@ -90,6 +90,32 @@ particular, **superpowers** (and any brainstorming/planning/research skill) MUST
 Do not create or commit a `docs/superpowers/` tree. If a design/plan becomes a durable
 deliverable, promote it into a real committed location on purpose.
 
+## Principles — functional programming
+
+squire is functional-first and leans on **kyo** as its standard library.
+
+- Pure functions, immutable data, referential transparency, total functions; push side
+  effects to the edges.
+- Express effects with kyo's pending-effect types (`A < S`): `Async`, `Abort`, `Env`,
+  `Scope`, `Emit`, etc. **Do not throw** — model failure with `Abort`/`Result`.
+- Data as ADTs (enums / case classes); exhaustive pattern matching; `derives Schema,
+  CanEqual` on protocol/data types.
+- Composition over inheritance; small, single-purpose modules with explicit interfaces.
+- kyo is the standard library; consult `.ref/getkyo/kyo` for idioms and exact signatures.
+
+## Build — Mill
+
+- Build tool: **Mill** (version pinned in `.mill-version`). Run `./mill <task>`.
+- Config is declarative-YAML-first: modules in `build.mill.yaml` / `package.mill.yaml`;
+  shared logic + code-gen in the `mill-build/` meta-build (`millbuild.*`).
+- **JDK 25+ is the project minimum** (Java 25 LTS); `mill-jvm-version: temurin:25`, modules
+  compile with `-release:25`.
+- Scala 3.8.4. kyo resolved from `https://central.sonatype.com/repository/maven-snapshots/`,
+  pinned to an exact dynver snapshot string (kyo's snapshot `maven-metadata.xml` can be
+  stale — never rely on it to pick "latest").
+- Common tasks: `./mill resolve _`, `./mill squire.cli.run`, `./mill squire.mcp.run`,
+  `./mill __.test`.
+
 ## Conventions
 
 - `.ref/`, `.omc/`, `.worktrees/`, `.dev/` are agent-scratch and gitignored. Do not commit them.

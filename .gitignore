@@ -14,3 +14,13 @@ hs_err_pid*
 
 # Agent dev work product (research/specs/plans) — local only, never source-controlled
 .dev/
+
+# Mill build output
+out/
+
+# IDE / build-server scratch (Mill BSP, editors)
+.bsp/
+.bloop/
+.metals/
+.idea/
+.vscode/
