@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+set -e
+
+SKILL_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+
+if [ -z "${REF_REPOS_PROJECT_ROOT}" ]; then
+  REF_REPOS_PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+fi
+
+if [ -z "${REF_REPOS_PROJECT_ROOT}" ]; then
+  echo "Not inside a git repository. Set REF_REPOS_PROJECT_ROOT to the target project." >&2
+  exit 1
+fi
+
+export REF_REPOS_PROJECT_ROOT
+cd "$SKILL_DIR"
+exec ./mill scripts/ref-repos.scala "$@"

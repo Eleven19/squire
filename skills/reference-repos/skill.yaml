@@ -1,0 +1,12 @@
+id: reference-repos
+displayName: Reference Repositories
+author: Eleven19
+description: >-
+  Clone and manage local reference repositories under .ref/ for source
+  exploration and published-library context, with a pinned YAML manifest and
+  artifact hints.
+version: 0.1.0
+license: Apache-2.0
+category: developer-tools
+tags: [reference, git, source-exploration]
+harnesses: [claude, codex, cursor, copilot, windsurf, devin]

@@ -1,0 +1,16 @@
+package build.skills
+
+import mill.*
+import mill.api.BuildCtx
+import millbuild.{Harness, HarnessGen}
+
+object harness extends Cross[HarnessGen](Harness.all)
+
+def generateAll() = Task.Command {
+  val root = BuildCtx.workspaceRoot
+  Task.traverse(harness.crossModules)(_.generate)().foreach { pr =>
+    os.walk(pr.path).filter(os.isFile).foreach { src =>
+      os.copy.over(src, root / src.subRelativeTo(pr.path), createFolders = true)
+    }
+  }
+}

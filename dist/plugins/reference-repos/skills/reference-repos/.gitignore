@@ -1,0 +1,10 @@
+# Mill
+out/
+
+# IDE / editor
+.metals/
+.bsp/
+.vscode/
+
+# Agent state
+.omc/

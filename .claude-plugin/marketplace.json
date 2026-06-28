@@ -1,28 +1,19 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "squire",
-  "description": "Eleven19's Claude Code plugin marketplace. Your trusty squire of reusable commands, agents, and skills.",
+  "description": "Eleven19's cross-harness skill marketplace.",
   "version": "0.1.0",
-  "owner": {
-    "name": "Eleven19",
-    "url": "https://github.com/Eleven19"
-  },
+  "owner": { "name": "Eleven19", "url": "https://github.com/Eleven19" },
   "plugins": [
     {
       "name": "reference-repos",
-      "source": "./plugins/reference-repos",
+      "source": "./dist/plugins/reference-repos",
       "description": "Clone and manage local reference repositories under .ref/ for source exploration and published-library context, with a pinned YAML manifest and artifact hints.",
+      "author": { "name": "Eleven19" },
       "version": "0.1.0",
-      "author": {
-        "name": "Eleven19"
-      },
       "license": "Apache-2.0",
       "category": "developer-tools",
-      "tags": [
-        "reference",
-        "git",
-        "source-exploration"
-      ]
+      "tags": ["reference", "git", "source-exploration"]
     }
   ]
 }

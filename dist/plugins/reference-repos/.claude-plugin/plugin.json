@@ -4,16 +4,7 @@
   "displayName": "Reference Repositories",
   "version": "0.1.0",
   "description": "Clone and manage local reference repositories under .ref/ for source exploration and published-library context, with a pinned YAML manifest and artifact hints.",
-  "author": {
-    "name": "Eleven19"
-  },
-  "repository": "https://github.com/Eleven19/squire",
+  "author": { "name": "Eleven19" },
   "license": "Apache-2.0",
-  "keywords": [
-    "reference",
-    "repositories",
-    "source-exploration",
-    "git",
-    "manifest"
-  ]
+  "keywords": ["reference", "git", "source-exploration"]
 }
