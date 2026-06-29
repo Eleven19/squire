@@ -18,7 +18,8 @@ object McpCommand extends KyoCommand[McpOptions]:
         GreetOut(Squire.greeting(in.subject))
       }
     JsonRpcTransport.stdio().map { transport =>
-      McpServer.initWith(transport, greet)(_ => Async.never)
+      val handlers: Seq[McpHandler[?, ?, ?]] = greet +: McpTools.all
+      McpServer.initWith(transport, handlers*)(_ => Async.never)
     }
   }
 end McpCommand
