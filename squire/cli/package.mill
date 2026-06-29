@@ -29,9 +29,11 @@ object `package` extends millbuild.SquireModule with NativeImageModule with Publ
 
   // Reads RELEASE_VERSION from the environment (set by CI for tag pushes and
   // workflow_dispatch runs).  Falls back to "0.1.0" for local development.
-  // Task.Input is used so Mill re-evaluates on every run rather than caching.
+  // Use Task.env (the client-forwarded environment), NOT sys.env: Mill runs
+  // tasks in a long-lived daemon whose sys.env reflects the daemon's stale
+  // startup environment, so a per-invocation env var would be missed.
   override def publishVersion: T[String] = Task.Input {
-    sys.env.getOrElse("RELEASE_VERSION", "0.1.0")
+    Task.env.getOrElse("RELEASE_VERSION", "0.1.0")
   }
 
   def pomSettings = PomSettings(
