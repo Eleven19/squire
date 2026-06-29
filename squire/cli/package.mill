@@ -1,0 +1,26 @@
+package build.squire.cli
+import mill.*, scalalib.*
+import mill.javalib.NativeImageModule
+
+// Scala `package.mill` (not declarative `package.mill.yaml`) because NativeImageModule
+// mixin is not expressible in Mill's module YAML for a custom trait like SquireModule.
+@mill.api.experimental
+object `package` extends millbuild.SquireModule with NativeImageModule {
+  def moduleDeps = Seq(build.squire.core, build.squire.tools)
+  def mvnDeps = Seq(
+    kyoDep("kyo-case-app"),
+    kyoDep("kyo-mcp")
+  )
+  def mainClass = Some("squire.cli.Main")
+
+  // Use GraalVM Community 25 to match the project's JDK 25 minimum.
+  def jvmVersion = "graalvm-community:25.0.1"
+
+  // --no-fallback: fail the build if a class cannot be resolved rather than
+  // silently producing a JVM-fallback image.  super.nativeImageOptions() adds
+  // -H:ConfigurationFileDirectories for any reachability-metadata found on the
+  // classpath (including our agent-generated META-INF/native-image/ resources).
+  override def nativeImageOptions: T[Seq[String]] = Task {
+    Seq("--no-fallback") ++ super.nativeImageOptions()
+  }
+}
