@@ -1,11 +1,12 @@
 package build.squire.cli
 import mill.*, scalalib.*
-import mill.javalib.NativeImageModule
+import mill.javalib.{NativeImageModule, PublishModule}
+import mill.javalib.publish.{Developer, License, PomSettings, PublishInfo, VersionControl}
 
 // Scala `package.mill` (not declarative `package.mill.yaml`) because NativeImageModule
 // mixin is not expressible in Mill's module YAML for a custom trait like SquireModule.
 @mill.api.experimental
-object `package` extends millbuild.SquireModule with NativeImageModule {
+object `package` extends millbuild.SquireModule with NativeImageModule with PublishModule {
   def moduleDeps = Seq(build.squire.core, build.squire.tools)
   def mvnDeps = Seq(
     kyoDep("kyo-case-app"),
@@ -22,5 +23,57 @@ object `package` extends millbuild.SquireModule with NativeImageModule {
   // classpath (including our agent-generated META-INF/native-image/ resources).
   override def nativeImageOptions: T[Seq[String]] = Task {
     Seq("--no-fallback") ++ super.nativeImageOptions()
+  }
+
+  // --- publishing ----------------------------------------------------------
+
+  def publishVersion = "0.1.0"
+
+  def pomSettings = PomSettings(
+    description = "squire CLI — MCP server and tools",
+    organization = "io.eleven19",
+    url = "https://github.com/Eleven19/squire",
+    licenses = Seq(License.`Apache-2.0`),
+    versionControl = VersionControl.github("Eleven19", "squire"),
+    developers = Seq(Developer("eleven19", "Eleven19", "https://github.com/Eleven19"))
+  )
+
+  // Staging directory for native binaries produced by CI (e.g. squire-macos-arm64,
+  // squire-linux-x86_64, squire-windows-x86_64.exe).  Glob evaluated at task time
+  // so the task succeeds whether or not the directory is populated.
+  def nativeStaging = Task.Source(mill.api.BuildCtx.workspaceRoot / "dist-native")
+
+  // Attach the fat assembly jar and any native binaries found in dist-native/.
+  // Launchers (Phase 2) will be appended to the asm ++ natives list here.
+  override def extraPublish: T[Seq[PublishInfo]] = Task {
+    val asm = Seq(
+      PublishInfo(
+        file = assembly(),
+        classifier = Some("assembly"),
+        ext = "jar",
+        ivyConfig = "compile",
+        ivyType = "jar"
+      )
+    )
+    val stagingDir = nativeStaging().path
+    val natives =
+      if (os.exists(stagingDir))
+        os.list(stagingDir)
+          .filter(p => os.isFile(p))
+          .map { p =>
+            val name     = p.last
+            val platform = name.stripPrefix("squire-")
+            val isExe    = platform.endsWith(".exe")
+            PublishInfo(
+              file = PathRef(p),
+              classifier = Some(if (isExe) platform.stripSuffix(".exe") else platform),
+              ext = if (isExe) "exe" else "bin",
+              ivyConfig = "compile",
+              ivyType = if (isExe) "exe" else "bin"
+            )
+          }
+          .toSeq
+      else Nil
+    asm ++ natives
   }
 }

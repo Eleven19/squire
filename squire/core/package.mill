@@ -1,10 +1,22 @@
 package build.squire.core
 import mill.*, scalalib.*
+import mill.javalib.PublishModule
+import mill.javalib.publish.{Developer, License, PomSettings, VersionControl}
 
 // Scala `package.mill` (not declarative `package.mill.yaml`) because the `test`
 // sub-module with its own `mvnDeps` is not expressible in Mill's module YAML.
-object `package` extends millbuild.SquireModule {
+object `package` extends millbuild.SquireModule with PublishModule {
   def mvnDeps = Seq(kyoDep("kyo-core"))
+
+  def publishVersion = "0.1.0"
+  def pomSettings = PomSettings(
+    description = "squire core — kyo-based pure-functional foundation",
+    organization = "io.eleven19",
+    url = "https://github.com/Eleven19/squire",
+    licenses = Seq(License.`Apache-2.0`),
+    versionControl = VersionControl.github("Eleven19", "squire"),
+    developers = Seq(Developer("eleven19", "Eleven19", "https://github.com/Eleven19"))
+  )
 
   object test extends ScalaTests with TestModule {
     def mvnDeps       = Seq(kyoDep("kyo-test-runner"))

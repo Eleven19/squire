@@ -18,6 +18,9 @@ hs_err_pid*
 # Mill build output
 out/
 
+# Native binary staging dir (populated by CI; never committed)
+dist-native/
+
 # IDE / build-server scratch (Mill BSP, editors)
 .bsp/
 .bloop/
