@@ -1,11 +1,10 @@
 package squire.core
 
-import utest.*
+import kyo.test.Test
 
-object SquireTest extends TestSuite {
-  val tests = Tests {
-    test("greeting names the subject") {
+class SquireTest extends Test[Any]:
+  "Squire" - {
+    "greeting names the subject" in {
       assert(Squire.greeting("squire") == "Hello, squire!")
     }
   }
-}

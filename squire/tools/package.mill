@@ -1,10 +1,9 @@
-package build.squire.core
+package build.squire.tools
 import mill.*, scalalib.*
 
-// Scala `package.mill` (not declarative `package.mill.yaml`) because the `test`
-// sub-module with its own `mvnDeps` is not expressible in Mill's module YAML.
 object `package` extends millbuild.SquireModule {
-  def mvnDeps = Seq(kyoDep("kyo-core"))
+  def moduleDeps = Seq(build.squire.core)
+  def mvnDeps    = Seq(kyoDep("kyo-core"), kyoDep("kyo-schema"), mvn"org.virtuslab::scala-yaml:0.3.2")
 
   object test extends ScalaTests with TestModule {
     def mvnDeps       = Seq(kyoDep("kyo-test-runner"))
