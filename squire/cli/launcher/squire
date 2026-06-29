@@ -1,0 +1,128 @@
+#!/bin/sh
+# squire bootstrap launcher — resolves and downloads squire for the current platform.
+#
+# Version precedence (highest to lowest):
+#   1. SQUIRE_VERSION env var
+#   2. Nearest .squire-version file walking up from $PWD
+#   3. SQUIRE_DEFAULT_VERSION (0.1.0)
+#
+# Artifact preference:
+#   Native binary (fastest cold start) unless SQUIRE_JVM is set or the
+#   current platform has no pre-built binary.
+#
+# Overridable env vars:
+#   SQUIRE_VERSION    — pin a specific version
+#   SQUIRE_JVM        — any non-empty value forces the assembly JAR path
+#   SQUIRE_CACHE      — cache root (default: $HOME/.cache/squire)
+#   SQUIRE_BASE_URL   — Maven-compatible base URL
+#                       (default: https://repo1.maven.org/maven2/io/eleven19/squire-cli_3)
+#   SQUIRE_DOWNLOAD   — path to an executable invoked as:
+#                         "$SQUIRE_DOWNLOAD" <url> <dest>
+#                       overrides curl/wget; useful for offline tests
+
+set -eu
+
+# ---------------------------------------------------------------------------
+# Version resolution
+# ---------------------------------------------------------------------------
+
+SQUIRE_DEFAULT_VERSION="0.1.0"
+
+# Walk $PWD up to root looking for the first .squire-version file;
+# prints the file path on stdout and returns 0, or returns 1 if not found.
+squire_find_version_file() {
+  dir="$PWD"
+  while true; do
+    if [ -f "$dir/.squire-version" ]; then
+      printf '%s' "$dir/.squire-version"
+      return 0
+    fi
+    parent=$(dirname "$dir")
+    [ "$parent" = "$dir" ] && return 1
+    dir="$parent"
+  done
+}
+
+if [ -n "${SQUIRE_VERSION:-}" ]; then
+  version="$SQUIRE_VERSION"
+elif vf=$(squire_find_version_file 2>/dev/null); then
+  # Strip all whitespace (including trailing newline / CR from Windows editors).
+  version=$(tr -d '[:space:]' < "$vf")
+else
+  version="$SQUIRE_DEFAULT_VERSION"
+fi
+
+# ---------------------------------------------------------------------------
+# Platform detection
+# ---------------------------------------------------------------------------
+
+uname_s=$(uname -s)
+uname_m=$(uname -m)
+
+case "$uname_s" in
+  Darwin)
+    case "$uname_m" in
+      arm64)  platform="macos-arm64" ;;
+      *)      platform="" ;;           # unsupported Darwin arch — jar fallback
+    esac ;;
+  Linux)
+    case "$uname_m" in
+      x86_64)         platform="linux-x64" ;;
+      aarch64|arm64)  platform="linux-arm64" ;;
+      *)              platform="" ;;
+    esac ;;
+  *)
+    platform="" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Download helper
+# ---------------------------------------------------------------------------
+
+SQUIRE_BASE_URL="${SQUIRE_BASE_URL:-https://repo1.maven.org/maven2/io/eleven19/squire-cli_3}"
+cache_root="${SQUIRE_CACHE:-$HOME/.cache/squire}"
+cache_dir="$cache_root/$version"
+
+squire_download() {
+  url="$1"
+  dest="$2"
+  mkdir -p "$(dirname "$dest")"
+  if [ -n "${SQUIRE_DOWNLOAD:-}" ]; then
+    "$SQUIRE_DOWNLOAD" "$url" "$dest"
+  elif command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$dest" "$url"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$dest" "$url"
+  else
+    printf 'squire: error: neither curl nor wget found on PATH\n' >&2
+    exit 1
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Artifact selection and launch
+# ---------------------------------------------------------------------------
+
+artifact_base="${SQUIRE_BASE_URL}/${version}/squire-cli_3-${version}"
+
+if [ -z "${SQUIRE_JVM:-}" ] && [ -n "$platform" ]; then
+  # Prefer the platform-native binary; cache as squire-<platform> (no ext).
+  cache_bin="$cache_dir/squire-${platform}"
+  if [ ! -f "$cache_bin" ]; then
+    squire_download "${artifact_base}-${platform}.bin" "$cache_bin"
+  fi
+  chmod +x "$cache_bin"
+  exec "$cache_bin" "$@"
+else
+  # JAR fallback — requires java on PATH.
+  if ! command -v java >/dev/null 2>&1; then
+    printf 'squire: error: java not found on PATH\n' >&2
+    printf '  Install a JRE 11+ or unset SQUIRE_JVM to use the native binary.\n' >&2
+    exit 1
+  fi
+  cache_jar="$cache_dir/squire-assembly.jar"
+  if [ ! -f "$cache_jar" ]; then
+    squire_download "${artifact_base}-assembly.jar" "$cache_jar"
+  fi
+  exec java -jar "$cache_jar" "$@"
+fi
