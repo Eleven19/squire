@@ -5,7 +5,7 @@ import kyo.*
 
 final case class InfoOptions(@Name("json") json: Boolean = false)
 
-/** `squire info [--json]` — print name, version, and runtime info. */
+/** `squire info [--json]`: print name, version, and runtime info. */
 object InfoCommand extends KyoCommand[InfoOptions]:
     override def name = "info"
 

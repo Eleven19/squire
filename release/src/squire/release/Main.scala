@@ -19,31 +19,31 @@ private def cli[A](eff: A < (Async & Abort[String]))(using Frame): A < (Async & 
         case Result.Panic(t)     => throw t
     }
 
-/** `release next` — print the next version computed from the conventional commits since the previous tag. */
+/** `release next`:print the next version computed from the conventional commits since the previous tag. */
 object NextCommand extends KyoCommand[NoOpts]:
     override def name = "next"
     run { (_, _) => cli(Commands.next) }
 end NextCommand
 
-/** `release version [--snapshot]` — print the build version (`git describe`) or the next snapshot version. */
+/** `release version [--snapshot]`:print the build version (`git describe`) or the next snapshot version. */
 object VersionCommand extends KyoCommand[VersionOptions]:
     override def name = "version"
     run { (opts, _) => cli(Commands.versionString(opts.snapshot)) }
 end VersionCommand
 
-/** `release check <version>` — fail unless CHANGELOG.md has a dated section for the version. */
+/** `release check <version>`:fail unless CHANGELOG.md has a dated section for the version. */
 object CheckCommand extends KyoCommand[NoOpts]:
     override def name = "check"
     run { (_, remaining) => cli(Commands.version(remaining.remaining).map(Commands.check)) }
 end CheckCommand
 
-/** `release notes <version>` — write assembled release notes to `out/release-notes-<version>.md`. */
+/** `release notes <version>`:write assembled release notes to `out/release-notes-<version>.md`. */
 object NotesCommand extends KyoCommand[NoOpts]:
     override def name = "notes"
     run { (_, remaining) => cli(Commands.version(remaining.remaining).map(Commands.notes)) }
 end NotesCommand
 
-/** `release promote [<version>] [--date YYYY-MM-DD]` — stamp the Unreleased section as a dated release. */
+/** `release promote [<version>] [--date YYYY-MM-DD]`:stamp the Unreleased section as a dated release. */
 object PromoteCommand extends KyoCommand[PromoteOptions]:
     override def name = "promote"
     run { (opts, remaining) =>
@@ -51,7 +51,7 @@ object PromoteCommand extends KyoCommand[PromoteOptions]:
     }
 end PromoteCommand
 
-/** `release smoke <version> [--bin PATH]` — run smoke checks against a built (or downloaded) squire binary. */
+/** `release smoke <version> [--bin PATH]`:run smoke checks against a built (or downloaded) squire binary. */
 object SmokeCommand extends KyoCommand[SmokeOptions]:
     override def name = "smoke"
     run { (opts, remaining) =>
@@ -59,7 +59,7 @@ object SmokeCommand extends KyoCommand[SmokeOptions]:
     }
 end SmokeCommand
 
-/** `release` — the changelog and release tooling entrypoint. */
+/** `release`:the changelog and release tooling entrypoint. */
 object Main extends CommandsEntryPoint:
     def progName: String = "release"
     override def description = "squire release + changelog tooling"
