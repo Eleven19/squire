@@ -2,8 +2,8 @@
 
 Shared agent guidance for the **squire** repository. This is the single source of
 truth for agent instructions. Harness-specific files (`CLAUDE.md`,
-`.github/copilot-instructions.md`, etc.) import or point back here so every agent —
-Claude Code, Codex, Cursor, GitHub Copilot, Windsurf, Devin — gets the same behavior.
+`.github/copilot-instructions.md`, etc.) import or point back here so every agent
+(Claude Code, Codex, Cursor, GitHub Copilot, Windsurf, Devin) gets the same behavior.
 
 ## What this repo is
 
@@ -18,7 +18,7 @@ harness-specific file wins over the shared `src/` file on collision).
 
 Run `./mill skills.generateAll` to (re)generate the committed product: per-harness
 adapters under `dist/`, plus the root `.claude-plugin/marketplace.json` index. Generated
-files carry a "do not edit" header — never hand-edit them; edit `skills/` source and
+files carry a "do not edit" header. Never hand-edit them; edit `skills/` source and
 regenerate.
 
 ### reference-repos
@@ -45,21 +45,37 @@ Common commands: `ensure`, `add <url> [--ref VAL]`, `list`, `context`,
 **Important operational notes (learned, apply them):**
 
 - Run `ensure` once before the first `add` in a project.
-- `add` writes `.ref/manifest.yaml` non-atomically — **add repos sequentially, never in
-  parallel**, or concurrent writes corrupt the manifest (recover with `repair`).
+- `add` writes `.ref/manifest.yaml` non-atomically (**add repos sequentially, never in
+  parallel**); concurrent writes corrupt the manifest (recover with `repair`).
 - Some repos default-clone to a non-`main` branch (e.g. Dolt repos land on
   `__dolt_remote_info__`). Verify the pin with `list`; re-pin to the real default branch
   if wrong.
-- Never stage or commit anything under `.ref/` — it is gitignored on purpose.
+- Never stage or commit anything under `.ref/`; it is gitignored on purpose.
 
-## Agent dev work product — `.dev/`
+## Commit conventions
+
+squire uses [Conventional Commits](https://www.conventionalcommits.org/) (`type(scope): description`).
+Commit type drives both the generated release notes and the next SemVer version. See
+`docs/contributing/commits.md` for the type list and bump policy.
+
+## Releases & changelog
+
+squire keeps a curated `CHANGELOG.md` ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/)).
+Update `[Unreleased]` in the same PR as any release-worthy change.
+
+- Changelog policy: `docs/contributing/changelog.md`
+- Release flow: `docs/contributing/releasing.md`
+- Logic: the `release` Mill module (`./mill release.run <next|version|check|notes|promote|smoke>`)
+- Repo-local skills: `.claude/skills/changelog-maintenance`, `.claude/skills/release-management`
+
+## Agent dev work product (`.dev/`)
 
 Store all agent-generated working artifacts (research, specs, plans) under `.dev/`.
-**`.dev/` is gitignored** — it is local-only scratch and MUST NOT be committed. This
+**`.dev/` is gitignored**: it is local-only scratch and MUST NOT be committed. This
 keeps agent instructions and in-progress thinking out of source control; only finished,
 intentional deliverables (code, real docs) get committed elsewhere.
 
-Layout — one folder per work effort, classified by size, each with fixed sub-folders:
+Layout: one folder per work effort, classified by size, each with fixed sub-folders:
 
 ```
 .dev/
@@ -72,19 +88,19 @@ Layout — one folder per work effort, classified by size, each with fixed sub-f
 
 Effort types:
 
-- **spike** — short, throwaway exploration or investigation (hours). Default for ad-hoc
+- **spike**: short, throwaway exploration or investigation (hours). Default for ad-hoc
   research.
-- **spree** — a small-to-medium focused burst (a few related changes).
-- **campaign** — a large, multi-phase initiative.
+- **spree**: a small-to-medium focused burst (a few related changes).
+- **campaign**: a large, multi-phase initiative.
 
 Rules:
 
-- Put research in `research/`, specs in `specs/`, plans in `plans/` — never loose at the
+- Put research in `research/`, specs in `specs/`, plans in `plans/`, never loose at the
   effort root.
 - Never `git add` anything under `.dev/`. If a `.dev/` artifact deserves to be kept, copy
   the finished version into a real, committed location deliberately.
 
-### Tool/skill artifact placement — OVERRIDE
+### Tool/skill artifact placement (OVERRIDE)
 
 This `.dev/` layout **overrides** any tool's or skill's default artifact location. In
 particular, **superpowers** (and any brainstorming/planning/research skill) MUST write to
@@ -97,20 +113,20 @@ particular, **superpowers** (and any brainstorming/planning/research skill) MUST
 Do not create or commit a `docs/superpowers/` tree. If a design/plan becomes a durable
 deliverable, promote it into a real committed location on purpose.
 
-## Principles — functional programming
+## Principles: functional programming
 
 squire is functional-first and leans on **kyo** as its standard library.
 
 - Pure functions, immutable data, referential transparency, total functions; push side
   effects to the edges.
 - Express effects with kyo's pending-effect types (`A < S`): `Async`, `Abort`, `Env`,
-  `Scope`, `Emit`, etc. **Do not throw** — model failure with `Abort`/`Result`.
+  `Scope`, `Emit`, etc. **Do not throw**: model failure with `Abort`/`Result`.
 - Data as ADTs (enums / case classes); exhaustive pattern matching; `derives Schema,
   CanEqual` on protocol/data types.
 - Composition over inheritance; small, single-purpose modules with explicit interfaces.
 - kyo is the standard library; consult `.ref/getkyo/kyo` for idioms and exact signatures.
 
-## Build — Mill
+## Build: Mill
 
 - Build tool: **Mill** (version pinned in `.mill-version`). Run `./mill <task>`.
 - Config is declarative-YAML-first: modules in `build.mill.yaml` / `package.mill.yaml`;
@@ -119,11 +135,11 @@ squire is functional-first and leans on **kyo** as its standard library.
   compile with `-release:25`.
 - Scala 3.8.4. kyo resolved from `https://central.sonatype.com/repository/maven-snapshots/`,
   pinned to an exact dynver snapshot string (kyo's snapshot `maven-metadata.xml` can be
-  stale — never rely on it to pick "latest").
+  stale, never rely on it to pick "latest").
 - Common tasks: `./mill resolve _`, `./mill squire.cli.run greet`, `./mill squire.cli.run mcp`,
   `./mill __.test`.
 - The generated `dist/` tree and `.claude-plugin/marketplace.json` are checked in and
-  must stay in sync with `skills/` — regenerate with `./mill skills.generateAll`. CI
+  must stay in sync with `skills/`; regenerate with `./mill skills.generateAll`. CI
   (the `codegen` job in the `CI` workflow) fails on drift via `git diff --exit-code dist
   .claude-plugin/marketplace.json`.
 
