@@ -6,7 +6,6 @@ on:
     paths-ignore: ['.github/CODEOWNERS']
   push:
     branches: [main]
-    tags-ignore: ['v*']
     paths-ignore: ['.github/CODEOWNERS']
 
 # Cancel superseded runs for the same branch/PR.

@@ -8,16 +8,18 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/coursier
-        key: ${{ runner.os }}-coursier-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('build.mill.yaml', 'squire/**/package.mill', 'squire/**/package.mill.yaml', 'mill-build/**', '.mill-version') }}
+        # Coursier deps are job-independent — share one bucket across all jobs
+        # (no github.job in the key).
+        key: ${{ runner.os }}-coursier-${{ github.workflow }}-${{ hashFiles('build.mill.yaml', 'squire/**/package.mill', 'squire/**/package.mill.yaml', 'skills/**/package.mill', 'mill-build/**', '.mill-version') }}
         restore-keys: |
-          ${{ runner.os }}-coursier-${{ github.workflow }}-${{ github.job }}-
+          ${{ runner.os }}-coursier-${{ github.workflow }}-
           ${{ runner.os }}-coursier-
 
     - name: Cache Mill out
       uses: actions/cache@v4
       with:
         path: out
-        key: ${{ runner.os }}-mill-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('build.mill.yaml', 'squire/**/package.mill', 'squire/**/package.mill.yaml', 'mill-build/**', '.mill-version') }}
+        key: ${{ runner.os }}-mill-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('build.mill.yaml', 'squire/**/package.mill', 'squire/**/package.mill.yaml', 'skills/**/package.mill', 'mill-build/**', '.mill-version') }}
         restore-keys: |
           ${{ runner.os }}-mill-${{ github.workflow }}-${{ github.job }}-
           ${{ runner.os }}-mill-
