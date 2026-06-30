@@ -1,0 +1,349 @@
+# .github/workflows/release.yml
+#
+# Builds squire CLI artifacts once, then publishes via two independent paths:
+# GitHub Releases and Sonatype Central (Maven Central).
+#
+# Triggers
+#   push: tags 'v*'     — build all artifacts → publish to BOTH targets.
+#   workflow_dispatch   — build all artifacts → publish to selected target
+#                         (release | central | both).
+#
+# Job graph — publish-release and publish-central share no edge between them:
+#
+#   setup ──┬── build-native (matrix: 4 lanes) ──┬── publish-release
+#            └── build-jvm ──────────────────────┤
+#                                                 └── publish-central
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.0)'
+        required: true
+        type: string
+      target:
+        description: 'Publish target'
+        required: true
+        type: choice
+        options:
+          - release
+          - central
+          - both
+        default: both
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Resolve the canonical version string for this run:
+  #   tag push         → strip leading 'v' from GITHUB_REF_NAME
+  #                      (e.g. v0.1.0 → 0.1.0)
+  #   workflow_dispatch → use inputs.version verbatim
+  # ---------------------------------------------------------------------------
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Build a GraalVM native image for each of the four supported platforms.
+  # The produced binary is renamed to the exact contract name required by both
+  # the launcher scripts and extraPublish's classifier/ext derivation:
+  #
+  #   squire-linux-x64        classifier=linux-x64,   ext=bin
+  #   squire-linux-arm64      classifier=linux-arm64, ext=bin
+  #   squire-macos-arm64      classifier=macos-arm64, ext=bin
+  #   squire-windows-x64.exe  classifier=windows-x64, ext=exe
+  #
+  # Note: package.mill's `def jvmVersion = "graalvm-community:25.0.1"` also
+  # causes Mill to download GraalVM CE for this module.  graalvm/setup-graalvm
+  # ensures native-image is on the system PATH as an additional guarantee.
+  # ---------------------------------------------------------------------------
+  build-native:
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+            artifact: squire-linux-x64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+            artifact: squire-linux-arm64
+          - os: macos-latest
+            platform: macos-arm64
+            artifact: squire-macos-arm64
+          - os: windows-latest
+            platform: windows-x64
+            artifact: squire-windows-x64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm-community'
+
+      - name: Build native image (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          ./mill squire.cli.nativeImage
+          # Locate the binary produced by Mill in its output directory.
+          # Mill places nativeImage output under out/squire/cli/nativeImage.dest/.
+          binary=$(find out/squire/cli/nativeImage.dest -maxdepth 1 -type f | head -1)
+          cp "$binary" "${{ matrix.artifact }}"
+          chmod +x "${{ matrix.artifact }}"
+
+      - name: Build native image (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\mill.bat squire.cli.nativeImage
+          $binary = Get-ChildItem out/squire/cli/nativeImage.dest -File | Select-Object -First 1
+          if (-not $binary) { throw "No binary found in out/squire/cli/nativeImage.dest" }
+          Copy-Item $binary.FullName "${{ matrix.artifact }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.platform }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Build the platform-independent artifacts on a standard JDK 25 runner:
+  #   squire.jar   — fat assembly JAR (java -jar fallback path)
+  #   squire        — POSIX sh launcher with SQUIRE_DEFAULT_VERSION stamped in
+  #   squire.bat    — Windows CMD launcher with SQUIRE_DEFAULT_VERSION stamped in
+  #
+  # RELEASE_VERSION is read by package.mill's Task.Input publishVersion so the
+  # correct version flows through Mill's publish pipeline.
+  # ---------------------------------------------------------------------------
+  build-jvm:
+    needs: setup
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.setup.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Build assembly JAR
+        run: |
+          ./mill squire.cli.assembly
+          # Mill places assembly output under out/squire/cli/assembly.dest/.
+          jar=$(find out/squire/cli/assembly.dest -name "*.jar" -type f | head -1)
+          cp "$jar" squire.jar
+
+      - name: Stamp version into launcher scripts
+        env:
+          VERSION: ${{ needs.setup.outputs.version }}
+        run: |
+          # Replace the hard-coded SQUIRE_DEFAULT_VERSION constant in the POSIX launcher.
+          # Matches the line regardless of what version string is currently present.
+          sed -i \
+            "s/^SQUIRE_DEFAULT_VERSION=\"[^\"]*\"/SQUIRE_DEFAULT_VERSION=\"${VERSION}\"/" \
+            squire/cli/launcher/squire
+          # Replace the hard-coded SQUIRE_DEFAULT_VERSION in the Windows batch launcher.
+          sed -i \
+            "s/^set \"SQUIRE_DEFAULT_VERSION=[^\"]*\"/set \"SQUIRE_DEFAULT_VERSION=${VERSION}\"/" \
+            squire/cli/launcher/squire.bat
+
+      - name: Stage artifacts for upload
+        run: |
+          mkdir -p staging
+          cp squire.jar                    staging/squire.jar
+          cp squire/cli/launcher/squire    staging/squire
+          cp squire/cli/launcher/squire.bat staging/squire.bat
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jvm-artifacts
+          path: staging/
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Create a GitHub Release and attach all build artifacts.
+  # Downloads artifacts from all build jobs, computes a combined SHA256SUMS,
+  # then creates the release tagged "v<version>".
+  #
+  # Runs on: tag push, or workflow_dispatch with target == 'release' or 'both'.
+  # Has no dependency on publish-central.
+  # ---------------------------------------------------------------------------
+  publish-release:
+    needs: [setup, build-native, build-jvm]
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.target == 'release' || inputs.target == 'both'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-linux-x64
+          path: release-assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-linux-arm64
+          path: release-assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-macos-arm64
+          path: release-assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-x64
+          path: release-assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: jvm-artifacts
+          path: release-assets
+
+      - name: Compute SHA256SUMS
+        working-directory: release-assets
+        run: |
+          # Mark Unix binaries and the POSIX launcher executable.
+          chmod +x squire-linux-x64 squire-linux-arm64 squire-macos-arm64 squire 2>/dev/null || true
+          sha256sum \
+            squire-linux-x64 \
+            squire-linux-arm64 \
+            squire-macos-arm64 \
+            squire-windows-x64.exe \
+            squire.jar \
+            squire \
+            squire.bat \
+            > SHA256SUMS
+
+      - name: Create GitHub Release
+        working-directory: release-assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION}" \
+            --repo "${{ github.repository }}" \
+            --title "squire v${VERSION}" \
+            --generate-notes \
+            squire-linux-x64 \
+            squire-linux-arm64 \
+            squire-macos-arm64 \
+            squire-windows-x64.exe \
+            squire.jar \
+            squire \
+            squire.bat \
+            SHA256SUMS
+
+  # ---------------------------------------------------------------------------
+  # Publish to Sonatype Central (Maven Central).
+  # Restores native binaries into dist-native/ at the workspace root — the
+  # staging directory that extraPublish reads at publish time.
+  # Classifier and ext are derived from each filename by extraPublish:
+  #   squire-<platform>       → classifier=<platform>, ext=bin
+  #   squire-<platform>.exe   → classifier=<platform>, ext=exe
+  #
+  # RELEASE_VERSION env var is read by SquireModule.releaseVersion (Task.env)
+  # so Mill stamps the correct version into all published coordinates.
+  #
+  # Credentials are organization-level secrets (shared with Eleven19/ascribe,
+  # krueger, mill-maven).  Mill's SonatypeCentralPublishModule reads the
+  # MILL_SONATYPE_* / MILL_PGP_* env vars, so the publish step bridges the org
+  # secrets into those names (stripping any whitespace from the base64 key):
+  #   ELEVEN19_SONATYPE_USERNAME   → MILL_SONATYPE_USERNAME
+  #   ELEVEN19_SONATYPE_PASSWORD   → MILL_SONATYPE_PASSWORD
+  #   ELEVEN19_IO_PGP_SECRET_BASE64 → MILL_PGP_SECRET_BASE64
+  #   ELEVEN19_IO_PGP_PASSPHRASE   → MILL_PGP_PASSPHRASE
+  #
+  # Runs on: tag push, or workflow_dispatch with target == 'central' or 'both'.
+  # Has no dependency on publish-release.
+  # ---------------------------------------------------------------------------
+  publish-central:
+    needs: [setup, build-native, build-jvm]
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.target == 'central' || inputs.target == 'both'))
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.setup.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      # Restore native binaries into dist-native/ using the exact contract names.
+      # Each artifact is a single file; download-artifact places it directly in
+      # the target directory, preserving the filename.
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-linux-x64
+          path: dist-native
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-linux-arm64
+          path: dist-native
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-macos-arm64
+          path: dist-native
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-x64
+          path: dist-native
+
+      # Stamp the release version into the launcher scripts BEFORE publishing.
+      # extraPublish attaches them straight from source, so without this the
+      # Central-published launchers would always carry SQUIRE_DEFAULT_VERSION
+      # (0.1.0) — diverging from the version-stamped GitHub Release copies.
+      - name: Stamp version into launcher scripts
+        env:
+          VERSION: ${{ needs.setup.outputs.version }}
+        run: |
+          sed -i \
+            "s/^SQUIRE_DEFAULT_VERSION=\"[^\"]*\"/SQUIRE_DEFAULT_VERSION=\"${VERSION}\"/" \
+            squire/cli/launcher/squire
+          sed -i \
+            "s/^set \"SQUIRE_DEFAULT_VERSION=[^\"]*\"/set \"SQUIRE_DEFAULT_VERSION=${VERSION}\"/" \
+            squire/cli/launcher/squire.bat
+
+      # Publish all three modules (core, tools, cli) so the cli POM's transitive
+      # deps on squire-core/squire-tools resolve.  All share RELEASE_VERSION via
+      # SquireModule.releaseVersion, so their coordinates stay in lockstep.
+      - name: Publish to Sonatype Central
+        env:
+          SONATYPE_USERNAME: ${{ secrets.ELEVEN19_SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.ELEVEN19_SONATYPE_PASSWORD }}
+          PGP_SECRET: ${{ secrets.ELEVEN19_IO_PGP_SECRET_BASE64 }}
+          PGP_PASSPHRASE: ${{ secrets.ELEVEN19_IO_PGP_PASSPHRASE }}
+        run: |
+          # Bridge the org secrets into the names Mill reads automatically.
+          export MILL_SONATYPE_USERNAME="$SONATYPE_USERNAME"
+          export MILL_SONATYPE_PASSWORD="$SONATYPE_PASSWORD"
+          export MILL_PGP_PASSPHRASE="$PGP_PASSPHRASE"
+          MILL_PGP_SECRET_BASE64="$(echo "$PGP_SECRET" | tr -d '\n\r ')"
+          export MILL_PGP_SECRET_BASE64
+          ./mill mill.javalib.SonatypeCentralPublishModule/publishAll \
+            --publishArtifacts '{squire.core,squire.tools,squire.cli}.publishArtifacts'

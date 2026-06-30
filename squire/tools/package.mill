@@ -1,9 +1,21 @@
 package build.squire.tools
 import mill.*, scalalib.*
+import mill.javalib.PublishModule
+import mill.javalib.publish.{Developer, License, PomSettings, VersionControl}
 
-object `package` extends millbuild.SquireModule {
+object `package` extends millbuild.SquireModule with PublishModule {
   def moduleDeps = Seq(build.squire.core)
   def mvnDeps    = Seq(kyoDep("kyo-core"), kyoDep("kyo-schema"), mvn"org.virtuslab::scala-yaml:0.3.2")
+
+  def publishVersion = releaseVersion
+  def pomSettings = PomSettings(
+    description = "squire tools — CLI tool definitions and shared utilities",
+    organization = "io.eleven19",
+    url = "https://github.com/Eleven19/squire",
+    licenses = Seq(License.`Apache-2.0`),
+    versionControl = VersionControl.github("Eleven19", "squire"),
+    developers = Seq(Developer("eleven19", "Eleven19", "https://github.com/Eleven19"))
+  )
 
   object test extends ScalaTests with TestModule {
     def mvnDeps       = Seq(kyoDep("kyo-test-runner"))

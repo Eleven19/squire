@@ -1,0 +1,111 @@
+package build.squire.cli
+import mill.*, scalalib.*
+import mill.javalib.{NativeImageModule, PublishModule}
+import mill.javalib.publish.{Developer, License, PomSettings, PublishInfo, VersionControl}
+
+// Scala `package.mill` (not declarative `package.mill.yaml`) because NativeImageModule
+// mixin is not expressible in Mill's module YAML for a custom trait like SquireModule.
+@mill.api.experimental
+object `package` extends millbuild.SquireModule with NativeImageModule with PublishModule {
+  def moduleDeps = Seq(build.squire.core, build.squire.tools)
+  def mvnDeps = Seq(
+    kyoDep("kyo-case-app"),
+    kyoDep("kyo-mcp")
+  )
+  def mainClass = Some("squire.cli.Main")
+
+  // Use GraalVM Community 25 to match the project's JDK 25 minimum.
+  def jvmVersion = "graalvm-community:25.0.1"
+
+  // --no-fallback: fail the build if a class cannot be resolved rather than
+  // silently producing a JVM-fallback image.  The Phase 0 spike confirmed kyo
+  // needs no reachability metadata on GraalVM 25, so none is shipped; this just
+  // composes with super.nativeImageOptions() in case any is added later.
+  override def nativeImageOptions: T[Seq[String]] = Task {
+    Seq("--no-fallback") ++ super.nativeImageOptions()
+  }
+
+  // --- publishing ----------------------------------------------------------
+
+  // Shared with core/tools via SquireModule.releaseVersion so the cli POM's
+  // deps on squire-core/squire-tools never skew from cli's own version.
+  def publishVersion = releaseVersion
+
+  def pomSettings = PomSettings(
+    description = "squire CLI — MCP server and tools",
+    organization = "io.eleven19",
+    url = "https://github.com/Eleven19/squire",
+    licenses = Seq(License.`Apache-2.0`),
+    versionControl = VersionControl.github("Eleven19", "squire"),
+    developers = Seq(Developer("eleven19", "Eleven19", "https://github.com/Eleven19"))
+  )
+
+  // Staging directory for native binaries produced by CI (e.g. squire-macos-arm64,
+  // squire-linux-x86_64, squire-windows-x86_64.exe).  Glob evaluated at task time
+  // so the task succeeds whether or not the directory is populated.
+  def nativeStaging = Task.Source(mill.api.BuildCtx.workspaceRoot / "dist-native")
+
+  // Source-tracked reference to the bootstrap launcher scripts under
+  // squire/cli/launcher/.  Declaring as Task.Source ensures Mill re-runs
+  // dependents when the scripts change.
+  def launcherDir = Task.Source(mill.api.BuildCtx.workspaceRoot / "squire" / "cli" / "launcher")
+
+  // Attach the fat assembly jar, any native binaries found in dist-native/,
+  // and the two bootstrap launcher scripts.
+  //
+  // Launcher classifiers use distinct names ("launcher" for the POSIX sh
+  // script, "launcher-bat" for the Windows batch script) rather than sharing
+  // a single "launcher" classifier with two different extensions.  Some Maven
+  // tooling keys artifact lookup on classifier alone and would be ambiguous
+  // with a same-classifier / different-extension pair.
+  override def extraPublish: T[Seq[PublishInfo]] = Task {
+    val asm = Seq(
+      PublishInfo(
+        file = assembly(),
+        classifier = Some("assembly"),
+        ext = "jar",
+        ivyConfig = "compile",
+        ivyType = "jar"
+      )
+    )
+    val stagingDir = nativeStaging().path
+    val natives =
+      if (os.exists(stagingDir))
+        os.list(stagingDir)
+          .filter(p => os.isFile(p))
+          .map { p =>
+            val name     = p.last
+            val platform = name.stripPrefix("squire-")
+            val isExe    = platform.endsWith(".exe")
+            PublishInfo(
+              file = PathRef(p),
+              classifier = Some(if (isExe) platform.stripSuffix(".exe") else platform),
+              ext = if (isExe) "exe" else "bin",
+              ivyConfig = "compile",
+              ivyType = if (isExe) "exe" else "bin"
+            )
+          }
+          .toSeq
+      else Nil
+    val lDir = launcherDir().path
+    val launchers = Seq(
+      // POSIX sh launcher — classifier "launcher", ext "sh"
+      PublishInfo(
+        file = PathRef(lDir / "squire"),
+        classifier = Some("launcher"),
+        ext = "sh",
+        ivyConfig = "compile",
+        ivyType = "sh"
+      ),
+      // Windows CMD launcher — classifier "launcher-bat", ext "bat"
+      PublishInfo(
+        file = PathRef(lDir / "squire.bat"),
+        classifier = Some("launcher-bat"),
+        ext = "bat",
+        ivyConfig = "compile",
+        ivyType = "bat"
+      )
+    )
+    asm ++ natives ++ launchers
+  }
+}
