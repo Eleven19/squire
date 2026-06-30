@@ -10,28 +10,29 @@ case class RefRepoAddIn(
     url: String,
     ref: Option[String] = None,
     artifacts: List[String] = Nil
-) derives Schema, CanEqual
+) derives Schema,
+      CanEqual
 
 case class RefRepoIdIn(id: String) derives Schema, CanEqual
 
 case class RefRepoUpdateIn(
     id: String,
     ref: Option[String] = None
-) derives Schema, CanEqual
+) derives Schema,
+      CanEqual
 
 case class RefRepoRefsIn(idOrUrl: String) derives Schema, CanEqual
 
 /** MCP tool handlers exposing [[squire.tools.refrepo.ReferenceRepo]] operations as `ref-repo-*` tools.
   *
-  * Each tool maps a typed input to the corresponding [[ReferenceRepo]] op, runs it via
-  * [[RefRepoCli.runRef]] (which resolves the project root and converts [[RefRepoError]] to
-  * [[Throwable]]), and surfaces failures as `isError = true` tool results the model can see.
-  * No-arg operations use [[Unit]] as the input type.
+  * Each tool maps a typed input to the corresponding [[ReferenceRepo]] op, runs it via [[RefRepoCli.runRef]] (which
+  * resolves the project root and converts [[RefRepoError]] to [[Throwable]]), and surfaces failures as `isError = true`
+  * tool results the model can see. No-arg operations use [[Unit]] as the input type.
   */
 object McpTools:
 
-    /** Run a [[ReferenceRepo]] op, resolving the project root and converting [[RefRepoError]] to a
-      * [[Throwable]] message.
+    /** Run a [[ReferenceRepo]] op, resolving the project root and converting [[RefRepoError]] to a [[Throwable]]
+      * message.
       */
     private def runOp[A](op: A < ReferenceRepo)(using Frame): A < (Async & Abort[Throwable]) =
         RefRepoCli.runRef(op)

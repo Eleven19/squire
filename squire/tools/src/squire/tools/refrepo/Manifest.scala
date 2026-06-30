@@ -30,31 +30,27 @@ object ManifestFile:
 
     /** Normalises empty YAML list fields (`repos`, `artifacts`) so they round-trip cleanly.
       *
-      * scala-yaml 0.3.x writes `List.empty` as a bare key with no value, which YAML
-      * interprets as null.  A bare key must be converted to `[]` so the decoder can
-      * construct a `List` from it.
+      * scala-yaml 0.3.x writes `List.empty` as a bare key with no value, which YAML interprets as null. A bare key must
+      * be converted to `[]` so the decoder can construct a `List` from it.
       *
-      * A custom [[org.virtuslab.yaml.YamlEncoder]] for [[List]] was investigated as a
-      * replacement: scala-yaml 0.3.2's encoder produces a [[org.virtuslab.yaml.Node.SequenceNode]]
-      * with no children for an empty list, but the presenter has no flow-sequence output
-      * mode — it always emits a bare key followed by nothing.  The regex post-process is
-      * therefore the only viable fix with scala-yaml 0.3.2.
+      * A custom [[org.virtuslab.yaml.YamlEncoder]] for [[List]] was investigated as a replacement: scala-yaml 0.3.2's
+      * encoder produces a [[org.virtuslab.yaml.Node.SequenceNode]] with no children for an empty list, but the
+      * presenter has no flow-sequence output mode — it always emits a bare key followed by nothing. The regex
+      * post-process is therefore the only viable fix with scala-yaml 0.3.2.
       *
-      * Indentation assumption pinned to scala-yaml 0.3.2 block-sequence style (2-space
-      * child indent).  If the library changes this, the regex lookahead `\\1[ \\t]+-`
-      * must be revisited.
+      * Indentation assumption pinned to scala-yaml 0.3.2 block-sequence style (2-space child indent). If the library
+      * changes this, the regex lookahead `\\1[ \\t]+-` must be revisited.
       *
-      * However a non-empty sequence is ALSO written as a bare key followed by block-sequence
-      * items on subsequent lines:
+      * However a non-empty sequence is ALSO written as a bare key followed by block-sequence items on subsequent lines:
       *
-      *   repos:          ← bare key, but followed by "- id: …" on the next line
+      * repos: ← bare key, but followed by "- id: …" on the next line
       *   - id: foo
       *
-      * We must only replace a bare key when it is NOT followed by a same-level sequence item.
-      * The regex captures the field's leading indent in group 1 and uses `\1` inside a
-      * negative lookahead so we skip any line that opens a block sequence at the same depth:
+      * We must only replace a bare key when it is NOT followed by a same-level sequence item. The regex captures the
+      * field's leading indent in group 1 and uses `\1` inside a negative lookahead so we skip any line that opens a
+      * block sequence at the same depth:
       *
-      *   `(?m)^(\\s*)(repos|artifacts):\\s*(?=\\n(?!\\1-)|\\z)`
+      * `(?m)^(\\s*)(repos|artifacts):\\s*(?=\\n(?!\\1-)|\\z)`
       *
       * Also handles the explicit YAML null forms `null` and `~`.
       */
@@ -74,8 +70,8 @@ object ManifestFile:
         // `artifacts:` is correctly replaced.
         s1.replaceAll("(?m)^(\\s*)(repos|artifacts):\\s*(?=\\n(?!\\1[ \\t]+-)|\\z)", "$1$2: []")
 
-    /** Read `.ref/manifest.yaml`; return [[empty]] if the file is absent. Fails with
-      * [[RefRepoError.ManifestParse]] if the file exists but cannot be decoded.
+    /** Read `.ref/manifest.yaml`; return [[empty]] if the file is absent. Fails with [[RefRepoError.ManifestParse]] if
+      * the file exists but cannot be decoded.
       */
     def read(root: NioPath)(using Frame): ManifestFile < Abort[RefRepoError] =
         val path = manifestPath(root)
@@ -84,7 +80,7 @@ object ManifestFile:
             val raw = Files.readString(path)
             raw.as[ManifestFile] match
                 case Right(m) => m
-                case Left(_)  =>
+                case Left(_) =>
                     sanitize(raw).as[ManifestFile] match
                         case Right(m)  => m
                         case Left(err) => Abort.fail(RefRepoError.ManifestParse(err.toString))

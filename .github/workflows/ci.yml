@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore: ['.github/CODEOWNERS']
+  push:
+    branches: [main]
+    paths-ignore: ['.github/CODEOWNERS']
+
+# Cancel superseded runs for the same branch/PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Setup Mill caches
+        uses: ./.github/actions/setup-mill-caches
+      - name: Check formatting
+        run: ./mill mill.scalalib.scalafmt.ScalafmtModule/checkFormatAll __.sources
+
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Setup Mill caches
+        uses: ./.github/actions/setup-mill-caches
+      - name: Compile
+        run: ./mill __.compile
+      - name: Test
+        run: ./mill __.test
+
+  codegen:
+    name: Codegen idempotency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Setup Mill caches
+        uses: ./.github/actions/setup-mill-caches
+      - name: Regenerate dist/ and assert no drift
+        run: |
+          ./mill skills.generateAll
+          git diff --exit-code dist .claude-plugin/marketplace.json \
+            || { echo "::error::dist/ is stale — run './mill skills.generateAll' and commit"; exit 1; }
+
+  native-smoke:
+    name: Native image smoke (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm-community'
+      - name: Setup Mill caches
+        uses: ./.github/actions/setup-mill-caches
+      - name: Build native image
+        run: ./mill squire.cli.nativeImage
+      - name: Smoke-run the native binary
+        run: |
+          binary=$(find out/squire/cli/nativeImage.dest -maxdepth 1 -type f | head -1)
+          if [ -z "$binary" ]; then echo "::error::no native binary produced"; exit 1; fi
+          chmod +x "$binary"
+          "$binary" greet

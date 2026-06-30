@@ -24,8 +24,7 @@ class ReferenceRepoTest extends Test[Any]:
         val proc = pb.start()
         val out  = new String(proc.getInputStream.readAllBytes())
         val code = proc.waitFor()
-        if code != 0 then
-            throw new RuntimeException(s"git ${args.mkString(" ")} failed (exit $code):\n$out")
+        if code != 0 then throw new RuntimeException(s"git ${args.mkString(" ")} failed (exit $code):\n$out")
 
     /** Create a non-bare git repo with one commit on branch `main`. */
     private def initSource(): NioPath =
@@ -59,8 +58,7 @@ class ReferenceRepoTest extends Test[Any]:
         if code != 0 then throw new RuntimeException(s"git ${args.mkString(" ")} failed (exit $code)")
         out
 
-    /** Source repo with a lightweight tag `v0.1` pinned to the initial commit.
-      * Returns `(dir, commitSha, "v0.1")`.
+    /** Source repo with a lightweight tag `v0.1` pinned to the initial commit. Returns `(dir, commitSha, "v0.1")`.
       */
     private def initSourceWithTag(): (NioPath, String, String) =
         val dir = initSource()
@@ -78,28 +76,32 @@ class ReferenceRepoTest extends Test[Any]:
 
             "creates .ref/ directory and empty manifest" in {
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure
+                        }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"Expected success, got error: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(_) =>
-                        assert(Files.isDirectory(root.resolve(".ref")))
-                        assert(Files.exists(root.resolve(".ref/manifest.yaml")))
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"Expected success, got error: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(_) =>
+                            assert(Files.isDirectory(root.resolve(".ref")))
+                            assert(Files.exists(root.resolve(".ref/manifest.yaml")))
+                    }
             }
 
             "adds .ref/ to .gitignore" in {
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) { ReferenceRepo.ensure }
-                }.map { _ =>
-                    val gi = root.resolve(".gitignore")
-                    assert(Files.exists(gi))
-                    assert(Files.readString(gi).contains(".ref/"))
-                }
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root)(ReferenceRepo.ensure)
+                    }
+                    .map { _ =>
+                        val gi = root.resolve(".gitignore")
+                        assert(Files.exists(gi))
+                        assert(Files.readString(gi).contains(".ref/"))
+                    }
             }
 
         }
@@ -109,55 +111,61 @@ class ReferenceRepoTest extends Test[Any]:
             "clones a file:// repo and records it in the manifest" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main"))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main"))
+                            }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"add failed: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(entry) =>
-                        assert(entry.ref.`type` == "branch")
-                        assert(entry.ref.value == "main")
-                        assert(entry.ref.resolved_sha.isDefined)
-                        assert(Files.isDirectory(ManifestFile.checkoutPath(root, entry.path)))
-                        assert(Files.exists(ManifestFile.manifestPath(root)))
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"add failed: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(entry) =>
+                            assert(entry.ref.`type` == "branch")
+                            assert(entry.ref.value == "main")
+                            assert(entry.ref.resolved_sha.isDefined)
+                            assert(Files.isDirectory(ManifestFile.checkoutPath(root, entry.path)))
+                            assert(Files.exists(ManifestFile.manifestPath(root)))
+                    }
             }
 
             "fails with AlreadyExists when the same repo is added twice" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { _ =>
-                                ReferenceRepo.add(s"file://$src", Maybe.Present("main"))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { _ =>
+                                    ReferenceRepo.add(s"file://$src", Maybe.Present("main"))
+                                }
                             }
                         }
                     }
-                }.map {
-                    case Result.Success(_) => fail("Expected AlreadyExists error")
-                    case Result.Panic(t)   => throw t
-                    case Result.Failure(e) => assert(e.isInstanceOf[RefRepoError.AlreadyExists])
-                }
+                    .map {
+                        case Result.Success(_) => fail("Expected AlreadyExists error")
+                        case Result.Panic(t)   => throw t
+                        case Result.Failure(e) => assert(e.isInstanceOf[RefRepoError.AlreadyExists])
+                    }
             }
 
             "fails with GitFailed on an invalid URL" in {
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add("file:///nonexistent/squire/test/repo/path", Maybe.Present("main"))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add("file:///nonexistent/squire/test/repo/path", Maybe.Present("main"))
+                            }
                         }
                     }
-                }.map {
-                    case Result.Success(_) => fail("Expected GitFailed error")
-                    case Result.Panic(t)   => throw t
-                    case Result.Failure(e) => assert(e.isInstanceOf[RefRepoError.GitFailed])
-                }
+                    .map {
+                        case Result.Success(_) => fail("Expected GitFailed error")
+                        case Result.Panic(t)   => throw t
+                        case Result.Failure(e) => assert(e.isInstanceOf[RefRepoError.GitFailed])
+                    }
             }
 
         }
@@ -166,35 +174,39 @@ class ReferenceRepoTest extends Test[Any]:
 
             "returns empty Chunk before any repos are added" in {
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ => ReferenceRepo.list }
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap(_ => ReferenceRepo.list)
+                        }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"$e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(repos) => assert(repos.isEmpty)
-                }
+                    .map {
+                        case Result.Failure(e)     => fail(s"$e")
+                        case Result.Panic(t)       => throw t
+                        case Result.Success(repos) => assert(repos.isEmpty)
+                    }
             }
 
             "reflects repos after add" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { _ =>
-                                ReferenceRepo.list
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { _ =>
+                                    ReferenceRepo.list
+                                }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"$e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(repos) =>
-                        assert(repos.size == 1)
-                        assert(repos.head.ref.value == "main")
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"$e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(repos) =>
+                            assert(repos.size == 1)
+                            assert(repos.head.ref.value == "main")
+                    }
             }
 
         }
@@ -204,36 +216,40 @@ class ReferenceRepoTest extends Test[Any]:
             "deletes checkout and removes manifest entry" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
-                                ReferenceRepo.remove(entry.id).flatMap { _ =>
-                                    ReferenceRepo.list
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
+                                    ReferenceRepo.remove(entry.id).flatMap { _ =>
+                                        ReferenceRepo.list
+                                    }
                                 }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"$e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(repos) => assert(repos.isEmpty)
-                }
+                    .map {
+                        case Result.Failure(e)     => fail(s"$e")
+                        case Result.Panic(t)       => throw t
+                        case Result.Success(repos) => assert(repos.isEmpty)
+                    }
             }
 
             "fails with RepoNotFound for an unknown id" in {
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.remove("no/such-repo")
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.remove("no/such-repo")
+                            }
                         }
                     }
-                }.map {
-                    case Result.Success(_) => fail("Expected RepoNotFound")
-                    case Result.Panic(t)   => throw t
-                    case Result.Failure(e) => assert(e.isInstanceOf[RefRepoError.RepoNotFound])
-                }
+                    .map {
+                        case Result.Success(_) => fail("Expected RepoNotFound")
+                        case Result.Panic(t)   => throw t
+                        case Result.Failure(e) => assert(e.isInstanceOf[RefRepoError.RepoNotFound])
+                    }
             }
 
         }
@@ -243,23 +259,25 @@ class ReferenceRepoTest extends Test[Any]:
             "removes all checkouts and clears the manifest" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
-                                ReferenceRepo.purge.flatMap { _ =>
-                                    ReferenceRepo.list.map(repos => (repos, entry))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
+                                    ReferenceRepo.purge.flatMap { _ =>
+                                        ReferenceRepo.list.map(repos => (repos, entry))
+                                    }
                                 }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"$e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success((repos, entry)) =>
-                        assert(repos.isEmpty)
-                        assert(!Files.exists(ManifestFile.checkoutPath(root, entry.path)))
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"$e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success((repos, entry)) =>
+                            assert(repos.isEmpty)
+                            assert(!Files.exists(ManifestFile.checkoutPath(root, entry.path)))
+                    }
             }
 
         }
@@ -269,27 +287,29 @@ class ReferenceRepoTest extends Test[Any]:
             "rebuilds manifest from on-disk checkouts" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
-                                // Corrupt the manifest so repair has to rebuild it.
-                                Files.delete(ManifestFile.manifestPath(root))
-                                ReferenceRepo.repair.flatMap { report =>
-                                    ReferenceRepo.list.map(repos => (report, repos, entry))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
+                                    // Corrupt the manifest so repair has to rebuild it.
+                                    Files.delete(ManifestFile.manifestPath(root))
+                                    ReferenceRepo.repair.flatMap { report =>
+                                        ReferenceRepo.list.map(repos => (report, repos, entry))
+                                    }
                                 }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"$e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success((report, repos, entry)) =>
-                        assert(report.total == 1)
-                        assert(report.added == 1)
-                        assert(repos.size == 1)
-                        assert(repos.head.id == entry.id)
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"$e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success((report, repos, entry)) =>
+                            assert(report.total == 1)
+                            assert(report.added == 1)
+                            assert(repos.size == 1)
+                            assert(repos.head.id == entry.id)
+                    }
             }
 
         }
@@ -299,21 +319,23 @@ class ReferenceRepoTest extends Test[Any]:
             "returns a summary listing available repos" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { _ =>
-                                ReferenceRepo.context
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { _ =>
+                                    ReferenceRepo.context
+                                }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"$e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(ctx) =>
-                        assert(ctx.repos.size == 1)
-                        assert(ctx.summary.nonEmpty)
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"$e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(ctx) =>
+                            assert(ctx.repos.size == 1)
+                            assert(ctx.summary.nonEmpty)
+                    }
             }
 
         }
@@ -323,64 +345,70 @@ class ReferenceRepoTest extends Test[Any]:
             "records type=branch when updated to a branch name" in {
                 val (src, _, _) = initSourceWithTag()
                 val root        = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
-                                ReferenceRepo.update(entry.id, Maybe.Present("main"))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
+                                    ReferenceRepo.update(entry.id, Maybe.Present("main"))
+                                }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"update to branch failed: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(entry) =>
-                        assert(entry.ref.`type` == "branch")
-                        assert(entry.ref.value == "main")
-                        assert(entry.ref.resolved_sha.isDefined)
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"update to branch failed: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(entry) =>
+                            assert(entry.ref.`type` == "branch")
+                            assert(entry.ref.value == "main")
+                            assert(entry.ref.resolved_sha.isDefined)
+                    }
             }
 
             "records type=tag when updated to a tag name" in {
                 val (src, _, tagName) = initSourceWithTag()
                 val root              = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
-                                ReferenceRepo.update(entry.id, Maybe.Present(tagName))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
+                                    ReferenceRepo.update(entry.id, Maybe.Present(tagName))
+                                }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"update to tag failed: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(entry) =>
-                        assert(entry.ref.`type` == "tag")
-                        assert(entry.ref.value == tagName)
-                        assert(entry.ref.resolved_sha.isDefined)
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"update to tag failed: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(entry) =>
+                            assert(entry.ref.`type` == "tag")
+                            assert(entry.ref.value == tagName)
+                            assert(entry.ref.resolved_sha.isDefined)
+                    }
             }
 
             "records type=commit when updated to a commit sha" in {
                 val (src, commitSha, _) = initSourceWithTag()
                 val root                = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
-                                ReferenceRepo.update(entry.id, Maybe.Present(commitSha))
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src", Maybe.Present("main")).flatMap { entry =>
+                                    ReferenceRepo.update(entry.id, Maybe.Present(commitSha))
+                                }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"update to commit sha failed: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(entry) =>
-                        assert(entry.ref.`type` == "commit")
-                        assert(entry.ref.value == commitSha)
-                        assert(entry.ref.resolved_sha.isDefined)
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"update to commit sha failed: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(entry) =>
+                            assert(entry.ref.`type` == "commit")
+                            assert(entry.ref.value == commitSha)
+                            assert(entry.ref.resolved_sha.isDefined)
+                    }
             }
 
         }
@@ -390,19 +418,21 @@ class ReferenceRepoTest extends Test[Any]:
             "returns branches and tags for a file:// source repo" in {
                 val (src, _, tagName) = initSourceWithTag()
                 val root              = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.refs(s"file://$src")
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.refs(s"file://$src")
+                            }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"refs failed: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(refs) =>
-                        assert(refs.exists(r => r.`type` == "branch" && r.value == "main"))
-                        assert(refs.exists(r => r.`type` == "tag" && r.value == tagName))
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"refs failed: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(refs) =>
+                            assert(refs.exists(r => r.`type` == "branch" && r.value == "main"))
+                            assert(refs.exists(r => r.`type` == "tag" && r.value == tagName))
+                    }
             }
 
         }
@@ -413,28 +443,30 @@ class ReferenceRepoTest extends Test[Any]:
                 val src1 = initSource()
                 val src2 = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(s"file://$src1", Maybe.Present("main")).flatMap { _ =>
-                                ReferenceRepo.add(s"file://$src2", Maybe.Present("main")).flatMap { _ =>
-                                    ReferenceRepo.list.flatMap { repos =>
-                                        // Re-read manifest from disk to verify the YAML round-trip.
-                                        ManifestFile.read(root).map { manifest =>
-                                            (repos, manifest)
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo.add(s"file://$src1", Maybe.Present("main")).flatMap { _ =>
+                                    ReferenceRepo.add(s"file://$src2", Maybe.Present("main")).flatMap { _ =>
+                                        ReferenceRepo.list.flatMap { repos =>
+                                            // Re-read manifest from disk to verify the YAML round-trip.
+                                            ManifestFile.read(root).map { manifest =>
+                                                (repos, manifest)
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"multi-repo list failed: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success((repos, manifest)) =>
-                        assert(repos.size == 2)
-                        assert(manifest.repos.size == 2)
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"multi-repo list failed: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success((repos, manifest)) =>
+                            assert(repos.size == 2)
+                            assert(manifest.repos.size == 2)
+                    }
             }
 
         }
@@ -444,28 +476,32 @@ class ReferenceRepoTest extends Test[Any]:
             "preserved through add and list" in {
                 val src  = initSource()
                 val root = initProject()
-                Abort.run[RefRepoError] {
-                    ReferenceRepoHandler.run(root) {
-                        ReferenceRepo.ensure.flatMap { _ =>
-                            ReferenceRepo.add(
-                                s"file://$src",
-                                Maybe.Present("main"),
-                                Chunk("io.x:y")
-                            ).flatMap { _ =>
-                                ReferenceRepo.list
+                Abort
+                    .run[RefRepoError] {
+                        ReferenceRepoHandler.run(root) {
+                            ReferenceRepo.ensure.flatMap { _ =>
+                                ReferenceRepo
+                                    .add(
+                                        s"file://$src",
+                                        Maybe.Present("main"),
+                                        Chunk("io.x:y")
+                                    )
+                                    .flatMap { _ =>
+                                        ReferenceRepo.list
+                                    }
                             }
                         }
                     }
-                }.map {
-                    case Result.Failure(e) => fail(s"artifacts test failed: $e")
-                    case Result.Panic(t)   => throw t
-                    case Result.Success(repos) =>
-                        assert(repos.size == 1)
-                        assert(repos.head.artifacts.nonEmpty)
-                        assert(repos.head.artifacts.exists(a =>
-                            a.group.contains("io.x") && a.artifact.contains("y")
-                        ))
-                }
+                    .map {
+                        case Result.Failure(e) => fail(s"artifacts test failed: $e")
+                        case Result.Panic(t)   => throw t
+                        case Result.Success(repos) =>
+                            assert(repos.size == 1)
+                            assert(repos.head.artifacts.nonEmpty)
+                            assert(
+                                repos.head.artifacts.exists(a => a.group.contains("io.x") && a.artifact.contains("y"))
+                            )
+                    }
             }
 
         }

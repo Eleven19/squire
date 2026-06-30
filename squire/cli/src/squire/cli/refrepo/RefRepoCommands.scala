@@ -13,6 +13,7 @@ final case class RefRepoEnsureOptions()
 /** `squire ref repo ensure` — create `.ref/`, an empty manifest, and a `.gitignore` entry if absent. */
 object RefRepoEnsureCommand extends KyoCommand[RefRepoEnsureOptions]:
     override def names = List(List("ref", "repo", "ensure"))
+
     run {
         RefRepoCli.runRef(ReferenceRepo.ensure).flatMap { _ =>
             Console.printLine("Ensured .ref/ layout")
@@ -32,6 +33,7 @@ final case class RefRepoAddOptions(
 /** `squire ref repo add <url> [--ref VAL] [--artifacts A]...` — clone and register a reference repository. */
 object RefRepoAddCommand extends KyoCommand[RefRepoAddOptions]:
     override def names = List(List("ref", "repo", "add"))
+
     run { (opts, remainingArgs) =>
         remainingArgs.remaining.headOption match
             case None =>
@@ -40,11 +42,13 @@ object RefRepoAddCommand extends KyoCommand[RefRepoAddOptions]:
                 val maybeRef = opts.ref match
                     case Some(r) => Maybe.Present(r)
                     case None    => Maybe.Absent
-                RefRepoCli.runRef(
-                    ReferenceRepo.add(url, maybeRef, Chunk.from(opts.artifacts))
-                ).flatMap { entry =>
-                    Console.printLine(s"${entry.id}  ${entry.url}  ${entry.ref.value}")
-                }
+                RefRepoCli
+                    .runRef(
+                        ReferenceRepo.add(url, maybeRef, Chunk.from(opts.artifacts))
+                    )
+                    .flatMap { entry =>
+                        Console.printLine(s"${entry.id}  ${entry.url}  ${entry.ref.value}")
+                    }
     }
 end RefRepoAddCommand
 
@@ -57,13 +61,11 @@ final case class RefRepoListOptions()
 /** `squire ref repo list` — list all managed repositories from the manifest. */
 object RefRepoListCommand extends KyoCommand[RefRepoListOptions]:
     override def names = List(List("ref", "repo", "list"))
+
     run {
         RefRepoCli.runRef(ReferenceRepo.list).flatMap { entries =>
             if entries.isEmpty then Console.printLine("(no repositories)")
-            else
-                Async.foreachDiscard(entries)(e =>
-                    Console.printLine(s"${e.id}  ${e.url}  ${e.ref.value}")
-                )
+            else Async.foreachDiscard(entries)(e => Console.printLine(s"${e.id}  ${e.url}  ${e.ref.value}"))
         }
     }
 end RefRepoListCommand
@@ -77,6 +79,7 @@ final case class RefRepoContextOptions()
 /** `squire ref repo context` — print an agent-friendly summary of available reference repos. */
 object RefRepoContextCommand extends KyoCommand[RefRepoContextOptions]:
     override def names = List(List("ref", "repo", "context"))
+
     run {
         RefRepoCli.runRef(ReferenceRepo.context).flatMap { report =>
             Console.printLine(report.summary)
@@ -95,6 +98,7 @@ final case class RefRepoRefsOptions(
 /** `squire ref repo refs <id|url>` — list recent branches and tags for a repo. */
 object RefRepoRefsCommand extends KyoCommand[RefRepoRefsOptions]:
     override def names = List(List("ref", "repo", "refs"))
+
     run { (opts, remainingArgs) =>
         opts.id.orElse(remainingArgs.remaining.headOption) match
             case None =>
@@ -122,6 +126,7 @@ final case class RefRepoUpdateOptions(
 /** `squire ref repo update <id> --ref VAL` — fetch and re-pin a managed repository. */
 object RefRepoUpdateCommand extends KyoCommand[RefRepoUpdateOptions]:
     override def names = List(List("ref", "repo", "update"))
+
     run { (opts, remainingArgs) =>
         opts.id.orElse(remainingArgs.remaining.headOption) match
             case None =>
@@ -147,6 +152,7 @@ final case class RefRepoRemoveOptions(
 /** `squire ref repo remove <id>` — remove a managed checkout and its manifest entry. */
 object RefRepoRemoveCommand extends KyoCommand[RefRepoRemoveOptions]:
     override def names = List(List("ref", "repo", "remove"))
+
     run { (opts, remainingArgs) =>
         opts.id.orElse(remainingArgs.remaining.headOption) match
             case None =>
@@ -167,6 +173,7 @@ final case class RefRepoPurgeOptions()
 /** `squire ref repo purge` — delete all managed checkouts and clear the manifest. */
 object RefRepoPurgeCommand extends KyoCommand[RefRepoPurgeOptions]:
     override def names = List(List("ref", "repo", "purge"))
+
     run {
         RefRepoCli.runRef(ReferenceRepo.purge).flatMap { _ =>
             Console.printLine("Purged all reference repositories")
@@ -183,6 +190,7 @@ final case class RefRepoRepairOptions()
 /** `squire ref repo repair` — rebuild the manifest from git checkouts discovered under `.ref/`. */
 object RefRepoRepairCommand extends KyoCommand[RefRepoRepairOptions]:
     override def names = List(List("ref", "repo", "repair"))
+
     run {
         RefRepoCli.runRef(ReferenceRepo.repair).flatMap { report =>
             Console.printLine(

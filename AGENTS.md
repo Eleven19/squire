@@ -124,7 +124,7 @@ squire is functional-first and leans on **kyo** as its standard library.
   `./mill __.test`.
 - The generated `dist/` tree and `.claude-plugin/marketplace.json` are checked in and
   must stay in sync with `skills/` — regenerate with `./mill skills.generateAll`. CI
-  (`codegen-idempotency` workflow) fails on drift via `git diff --exit-code dist
+  (the `codegen` job in the `CI` workflow) fails on drift via `git diff --exit-code dist
   .claude-plugin/marketplace.json`.
 
 ## Conventions
