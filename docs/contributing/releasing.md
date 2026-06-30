@@ -20,8 +20,6 @@ The `release` module exposes the release commands used both locally and in CI:
 ./mill release.run smoke <v> [--bin PATH]      # smoke-test a built binary
 ```
 
-`check` is also available directly as `./mill release.check <v>`.
-
 ## Two publish paths
 
 A release can target either or both of:
@@ -67,7 +65,7 @@ dated `## [<version>]` section for the release. It does not fall back to
 generated-only notes. Verify this locally before tagging:
 
 ```bash
-./mill release.check <version>
+./mill release.run check <version>
 ```
 
 ## Release notes

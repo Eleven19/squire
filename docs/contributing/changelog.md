@@ -126,11 +126,11 @@ Confirm the changelog is well-formed and that a release section will satisfy the
 release gate:
 
 ```bash
-./mill release.check <version>
+./mill release.run check <version>
 ./mill release.run notes <version>
 ```
 
-`release.check` fails if `CHANGELOG.md` is missing the exact dated section for the
+`release.run check` fails if `CHANGELOG.md` is missing the exact dated section for the
 given version; that is the same check the release workflow runs. `release.run
 notes` prints the assembled release body (curated changelog section plus generated
 commit notes) so you can review it before publishing.

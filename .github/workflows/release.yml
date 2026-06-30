@@ -206,7 +206,7 @@ jobs:
           java-version: '25'
 
       - name: Validate CHANGELOG section
-        run: ./mill release.check "${VERSION}"
+        run: ./mill release.run check "${VERSION}"
 
       - name: Build release notes
         run: ./mill release.run notes "${VERSION}"

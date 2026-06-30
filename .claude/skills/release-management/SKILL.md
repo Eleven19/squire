@@ -61,7 +61,7 @@ gh run view <id> --log-failed
 
 - Missing changelog section: the gate failed because `CHANGELOG.md` has no exact
   dated `## [<version>]` section. Fix the changelog, then re-check with
-  `./mill release.check <version>`.
+  `./mill release.run check <version>`.
 - Native-image matrix failure: open the failing platform job and inspect its
   native-image output. If only one platform failed, the problem is
   platform-specific; if all failed at the same step, suspect the shared build

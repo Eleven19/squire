@@ -20,5 +20,5 @@ or CI in a way that should appear in release notes.
 
 ```bash
 rg -n "^## \[Unreleased\]" CHANGELOG.md
-./mill release.check <version>   # only when a release section exists
+./mill release.run check <version>   # only when a release section exists
 ```
