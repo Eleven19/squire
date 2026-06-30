@@ -8,7 +8,7 @@ import mill.javalib.publish.{Developer, License, PomSettings, VersionControl}
 object `package` extends millbuild.SquireModule with PublishModule {
   def mvnDeps = Seq(kyoDep("kyo-core"))
 
-  def publishVersion = "0.1.0"
+  def publishVersion = releaseVersion
   def pomSettings = PomSettings(
     description = "squire core — kyo-based pure-functional foundation",
     organization = "io.eleven19",

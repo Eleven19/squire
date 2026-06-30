@@ -90,8 +90,6 @@ jobs:
             platform: windows-x64
             artifact: squire-windows-x64.exe
     runs-on: ${{ matrix.os }}
-    env:
-      RELEASE_VERSION: ${{ needs.setup.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -313,6 +311,24 @@ jobs:
           name: native-windows-x64
           path: dist-native
 
+      # Stamp the release version into the launcher scripts BEFORE publishing.
+      # extraPublish attaches them straight from source, so without this the
+      # Central-published launchers would always carry SQUIRE_DEFAULT_VERSION
+      # (0.1.0) — diverging from the version-stamped GitHub Release copies.
+      - name: Stamp version into launcher scripts
+        env:
+          VERSION: ${{ needs.setup.outputs.version }}
+        run: |
+          sed -i \
+            "s/^SQUIRE_DEFAULT_VERSION=\"[^\"]*\"/SQUIRE_DEFAULT_VERSION=\"${VERSION}\"/" \
+            squire/cli/launcher/squire
+          sed -i \
+            "s/^set \"SQUIRE_DEFAULT_VERSION=[^\"]*\"/set \"SQUIRE_DEFAULT_VERSION=${VERSION}\"/" \
+            squire/cli/launcher/squire.bat
+
+      # Publish all three modules (core, tools, cli) so the cli POM's transitive
+      # deps on squire-core/squire-tools resolve.  All share RELEASE_VERSION via
+      # SquireModule.releaseVersion, so their coordinates stay in lockstep.
       - name: Publish to Sonatype Central
         env:
           MILL_SONATYPE_USERNAME: ${{ secrets.MILL_SONATYPE_USERNAME }}
@@ -321,4 +337,4 @@ jobs:
           MILL_PGP_PASSPHRASE: ${{ secrets.MILL_PGP_PASSPHRASE }}
         run: |
           ./mill mill.javalib.SonatypeCentralPublishModule/publishAll \
-            --publishArtifacts squire.cli.publishArtifacts
+            --publishArtifacts '{squire.core,squire.tools,squire.cli}.publishArtifacts'

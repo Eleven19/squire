@@ -48,6 +48,8 @@ if [ -n "${SQUIRE_VERSION:-}" ]; then
 elif vf=$(squire_find_version_file 2>/dev/null); then
   # Strip all whitespace (including trailing newline / CR from Windows editors).
   version=$(tr -d '[:space:]' < "$vf")
+  # An empty/whitespace-only file would yield a malformed download URL — fall back.
+  [ -n "$version" ] || version="$SQUIRE_DEFAULT_VERSION"
 else
   version="$SQUIRE_DEFAULT_VERSION"
 fi
@@ -83,20 +85,29 @@ SQUIRE_BASE_URL="${SQUIRE_BASE_URL:-https://repo1.maven.org/maven2/io/eleven19/s
 cache_root="${SQUIRE_CACHE:-$HOME/.cache/squire}"
 cache_dir="$cache_root/$version"
 
+# Download $url to $dest atomically: write to a temp file and rename only on
+# success.  A failed download (404, dropped connection) leaves a partial/0-byte
+# file; without this, `set -e` would abort with that bad file already at $dest,
+# and the next run would skip the download and exec a broken artifact forever.
 squire_download() {
   url="$1"
   dest="$2"
   mkdir -p "$(dirname "$dest")"
+  tmp="$dest.tmp.$$"
+  # Remove the partial file if any step below aborts under `set -e`.
+  trap 'rm -f "$tmp"' EXIT
   if [ -n "${SQUIRE_DOWNLOAD:-}" ]; then
-    "$SQUIRE_DOWNLOAD" "$url" "$dest"
+    "$SQUIRE_DOWNLOAD" "$url" "$tmp"
   elif command -v curl >/dev/null 2>&1; then
-    curl -fsSL -o "$dest" "$url"
+    curl -fsSL -o "$tmp" "$url"
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$dest" "$url"
+    wget -qO "$tmp" "$url"
   else
     printf 'squire: error: neither curl nor wget found on PATH\n' >&2
     exit 1
   fi
+  mv "$tmp" "$dest"
+  trap - EXIT
 }
 
 # ---------------------------------------------------------------------------

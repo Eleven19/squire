@@ -18,23 +18,18 @@ object `package` extends millbuild.SquireModule with NativeImageModule with Publ
   def jvmVersion = "graalvm-community:25.0.1"
 
   // --no-fallback: fail the build if a class cannot be resolved rather than
-  // silently producing a JVM-fallback image.  super.nativeImageOptions() adds
-  // -H:ConfigurationFileDirectories for any reachability-metadata found on the
-  // classpath (including our agent-generated META-INF/native-image/ resources).
+  // silently producing a JVM-fallback image.  The Phase 0 spike confirmed kyo
+  // needs no reachability metadata on GraalVM 25, so none is shipped; this just
+  // composes with super.nativeImageOptions() in case any is added later.
   override def nativeImageOptions: T[Seq[String]] = Task {
     Seq("--no-fallback") ++ super.nativeImageOptions()
   }
 
   // --- publishing ----------------------------------------------------------
 
-  // Reads RELEASE_VERSION from the environment (set by CI for tag pushes and
-  // workflow_dispatch runs).  Falls back to "0.1.0" for local development.
-  // Use Task.env (the client-forwarded environment), NOT sys.env: Mill runs
-  // tasks in a long-lived daemon whose sys.env reflects the daemon's stale
-  // startup environment, so a per-invocation env var would be missed.
-  override def publishVersion: T[String] = Task.Input {
-    Task.env.getOrElse("RELEASE_VERSION", "0.1.0")
-  }
+  // Shared with core/tools via SquireModule.releaseVersion so the cli POM's
+  // deps on squire-core/squire-tools never skew from cli's own version.
+  def publishVersion = releaseVersion
 
   def pomSettings = PomSettings(
     description = "squire CLI — MCP server and tools",

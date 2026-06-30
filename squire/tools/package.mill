@@ -7,7 +7,7 @@ object `package` extends millbuild.SquireModule with PublishModule {
   def moduleDeps = Seq(build.squire.core)
   def mvnDeps    = Seq(kyoDep("kyo-core"), kyoDep("kyo-schema"), mvn"org.virtuslab::scala-yaml:0.3.2")
 
-  def publishVersion = "0.1.0"
+  def publishVersion = releaseVersion
   def pomSettings = PomSettings(
     description = "squire tools — CLI tool definitions and shared utilities",
     organization = "io.eleven19",
