@@ -10,6 +10,7 @@ object Main extends CommandsEntryPoint:
     override def description = "squire — MCP server and CLI tools"
 
     def commands: Seq[Command[?]] = Seq(
+        InfoCommand,
         McpCommand,
         SetupCommand,
         RefRepoEnsureCommand,

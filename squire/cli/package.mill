@@ -25,6 +25,31 @@ object `package` extends millbuild.SquireModule with NativeImageModule with Publ
     Seq("--no-fallback") ++ super.nativeImageOptions()
   }
 
+  // --- build metadata ------------------------------------------------------
+
+  // Bake the version into the binary; the launcher-script stamping does not reach nativeImage.
+  def buildInfoSource = Task {
+    val dir  = Task.dest
+    val file = dir / "squire" / "cli" / "BuildInfo.scala"
+    os.write(
+      file,
+      s"""package squire.cli
+         |
+         |/** Generated build metadata. */
+         |object BuildInfo:
+         |  val name: String         = "squire"
+         |  val version: String      = "${releaseVersion()}"
+         |  val scalaVersion: String = "${scalaVersion()}"
+         |""".stripMargin,
+      createFolders = true
+    )
+    PathRef(dir)
+  }
+
+  override def generatedSources: T[Seq[PathRef]] = Task {
+    super.generatedSources() :+ buildInfoSource()
+  }
+
   // --- publishing ----------------------------------------------------------
 
   // Shared with core/tools via SquireModule.releaseVersion so the cli POM's

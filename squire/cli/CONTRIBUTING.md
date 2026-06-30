@@ -189,3 +189,14 @@ to avoid fixture conflicts.
 6. Create `MyOpOptions` + `MyOpCommand` in the CLI commands file; register in `Main`.
 7. Add `MyOpIn` input type + `McpHandler.toolRaw` val to `McpTools`; add to `McpTools.all`.
 8. Write a kyo-test covering the happy path and at least one failure case.
+
+---
+
+## Output convention: human by default, `--json` for machines
+
+squire-cli commands print human-readable output by default and accept a `--json`
+flag that switches to a single machine-readable JSON object suitable for piping
+into other tools or scripts. `squire info` is the worked example: bare `info`
+prints two readable lines, while `info --json` prints one JSON object with the
+same fields. New commands that emit structured data should follow this pattern,
+keeping the default output readable and gating the JSON form behind `--json`.
