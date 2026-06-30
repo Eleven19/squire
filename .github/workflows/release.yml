@@ -262,14 +262,17 @@ jobs:
   #   squire-<platform>       → classifier=<platform>, ext=bin
   #   squire-<platform>.exe   → classifier=<platform>, ext=exe
   #
-  # RELEASE_VERSION env var is read by package.mill's Task.Input publishVersion
+  # RELEASE_VERSION env var is read by SquireModule.releaseVersion (Task.env)
   # so Mill stamps the correct version into all published coordinates.
   #
-  # Secrets expected (set in repo Settings → Secrets):
-  #   MILL_SONATYPE_USERNAME   Sonatype Central portal username
-  #   MILL_SONATYPE_PASSWORD   Sonatype Central portal password / token
-  #   MILL_PGP_SECRET_BASE64   Base64-encoded ASCII-armored GPG secret key
-  #   MILL_PGP_PASSPHRASE      Passphrase for the GPG key (if any)
+  # Credentials are organization-level secrets (shared with Eleven19/ascribe,
+  # krueger, mill-maven).  Mill's SonatypeCentralPublishModule reads the
+  # MILL_SONATYPE_* / MILL_PGP_* env vars, so the publish step bridges the org
+  # secrets into those names (stripping any whitespace from the base64 key):
+  #   ELEVEN19_SONATYPE_USERNAME   → MILL_SONATYPE_USERNAME
+  #   ELEVEN19_SONATYPE_PASSWORD   → MILL_SONATYPE_PASSWORD
+  #   ELEVEN19_IO_PGP_SECRET_BASE64 → MILL_PGP_SECRET_BASE64
+  #   ELEVEN19_IO_PGP_PASSPHRASE   → MILL_PGP_PASSPHRASE
   #
   # Runs on: tag push, or workflow_dispatch with target == 'central' or 'both'.
   # Has no dependency on publish-release.
@@ -331,10 +334,16 @@ jobs:
       # SquireModule.releaseVersion, so their coordinates stay in lockstep.
       - name: Publish to Sonatype Central
         env:
-          MILL_SONATYPE_USERNAME: ${{ secrets.MILL_SONATYPE_USERNAME }}
-          MILL_SONATYPE_PASSWORD: ${{ secrets.MILL_SONATYPE_PASSWORD }}
-          MILL_PGP_SECRET_BASE64: ${{ secrets.MILL_PGP_SECRET_BASE64 }}
-          MILL_PGP_PASSPHRASE: ${{ secrets.MILL_PGP_PASSPHRASE }}
+          SONATYPE_USERNAME: ${{ secrets.ELEVEN19_SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.ELEVEN19_SONATYPE_PASSWORD }}
+          PGP_SECRET: ${{ secrets.ELEVEN19_IO_PGP_SECRET_BASE64 }}
+          PGP_PASSPHRASE: ${{ secrets.ELEVEN19_IO_PGP_PASSPHRASE }}
         run: |
+          # Bridge the org secrets into the names Mill reads automatically.
+          export MILL_SONATYPE_USERNAME="$SONATYPE_USERNAME"
+          export MILL_SONATYPE_PASSWORD="$SONATYPE_PASSWORD"
+          export MILL_PGP_PASSPHRASE="$PGP_PASSPHRASE"
+          MILL_PGP_SECRET_BASE64="$(echo "$PGP_SECRET" | tr -d '\n\r ')"
+          export MILL_PGP_SECRET_BASE64
           ./mill mill.javalib.SonatypeCentralPublishModule/publishAll \
             --publishArtifacts '{squire.core,squire.tools,squire.cli}.publishArtifacts'
