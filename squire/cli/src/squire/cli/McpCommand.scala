@@ -11,15 +11,16 @@ final case class GreetOut(reply: String) derives Schema, CanEqual
 
 /** `squire mcp` — runs the kyo-mcp server over stdio until interrupted. */
 object McpCommand extends KyoCommand[McpOptions]:
-  override def name = "mcp"
-  run {
-    val greet =
-      McpHandler.tool[GreetIn]("greet", "Greet a subject") { in =>
-        GreetOut(Squire.greeting(in.subject))
-      }
-    JsonRpcTransport.stdio().map { transport =>
-      val handlers: Seq[McpHandler[?, ?, ?]] = greet +: McpTools.all
-      McpServer.initWith(transport, handlers*)(_ => Async.never)
+    override def name = "mcp"
+
+    run {
+        val greet =
+            McpHandler.tool[GreetIn]("greet", "Greet a subject") { in =>
+                GreetOut(Squire.greeting(in.subject))
+            }
+        JsonRpcTransport.stdio().map { transport =>
+            val handlers: Seq[McpHandler[?, ?, ?]] = greet +: McpTools.all
+            McpServer.initWith(transport, handlers*)(_ => Async.never)
+        }
     }
-  }
 end McpCommand

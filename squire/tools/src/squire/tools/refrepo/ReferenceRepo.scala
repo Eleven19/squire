@@ -5,8 +5,8 @@ import kyo.kernel.ArrowEffect
 
 /** ArrowEffect representing operations on managed reference repositories under `.ref/`.
   *
-  * Suspend an operation with the convenience helpers (`ensure`, `add`, `list`, …) and
-  * interpret the effect with [[ReferenceRepoHandler.run]].
+  * Suspend an operation with the convenience helpers (`ensure`, `add`, `list`, …) and interpret the effect with
+  * [[ReferenceRepoHandler.run]].
   */
 sealed trait ReferenceRepo extends ArrowEffect[ReferenceRepo.Op, Id]
 

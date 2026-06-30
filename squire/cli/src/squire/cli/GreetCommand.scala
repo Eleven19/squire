@@ -10,8 +10,9 @@ final case class GreetOptions(
 
 /** `squire greet [--name X]` — prints a greeting. Demo CLI subcommand. */
 object GreetCommand extends KyoCommand[GreetOptions]:
-  override def name = "greet"
-  run { opts =>
-    Console.printLine(Squire.greeting(opts.name))
-  }
+    override def name = "greet"
+
+    run { opts =>
+        Console.printLine(Squire.greeting(opts.name))
+    }
 end GreetCommand
