@@ -1,0 +1,23 @@
+name: Setup Mill caches
+description: Restore/save Coursier and Mill output caches for squire's Mill builds
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Coursier
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/coursier
+        key: ${{ runner.os }}-coursier-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('build.mill.yaml', 'squire/**/package.mill', 'squire/**/package.mill.yaml', 'mill-build/**', '.mill-version') }}
+        restore-keys: |
+          ${{ runner.os }}-coursier-${{ github.workflow }}-${{ github.job }}-
+          ${{ runner.os }}-coursier-
+
+    - name: Cache Mill out
+      uses: actions/cache@v4
+      with:
+        path: out
+        key: ${{ runner.os }}-mill-${{ github.workflow }}-${{ github.job }}-${{ hashFiles('build.mill.yaml', 'squire/**/package.mill', 'squire/**/package.mill.yaml', 'mill-build/**', '.mill-version') }}
+        restore-keys: |
+          ${{ runner.os }}-mill-${{ github.workflow }}-${{ github.job }}-
+          ${{ runner.os }}-mill-
