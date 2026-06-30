@@ -196,6 +196,21 @@ jobs:
     env:
       VERSION: ${{ needs.setup.outputs.version }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Validate CHANGELOG section
+        run: ./mill release.check "${VERSION}"
+
+      - name: Build release notes
+        run: ./mill release.run notes "${VERSION}"
+
       - uses: actions/download-artifact@v4
         with:
           name: native-linux-x64
@@ -244,7 +259,7 @@ jobs:
           gh release create "v${VERSION}" \
             --repo "${{ github.repository }}" \
             --title "squire v${VERSION}" \
-            --generate-notes \
+            --notes-file "$GITHUB_WORKSPACE/out/release-notes-${VERSION}.md" \
             squire-linux-x64 \
             squire-linux-arm64 \
             squire-macos-arm64 \
