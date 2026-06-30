@@ -79,14 +79,14 @@ depends on whether the current version is pre-1.0 or stable.
 
 While `0.x` (pre-1.0):
 
-- breaking change or `feat` ⇒ minor bump
-- anything else ⇒ patch bump
+- breaking change or `feat` results in a minor bump
+- anything else results in a patch bump
 
 At `>=1.0` (stable):
 
-- breaking change ⇒ major bump
-- `feat` ⇒ minor bump
-- anything else ⇒ patch bump
+- breaking change results in a major bump
+- `feat` results in a minor bump
+- anything else results in a patch bump
 
 If the commit range is empty, or contains no Conventional Commits, the tooling
 falls back to a patch bump.
