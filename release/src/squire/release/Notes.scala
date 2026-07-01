@@ -47,11 +47,13 @@ object Notes:
             ConventionalCommit.parse(s).map(c => (ConventionalCommit.bucketOf(c), describe(s, c)))
         ).map { pairs =>
             val byBucket = pairs.groupBy(_._1)
-            Changelog.Buckets.flatMap { bucket =>
-                byBucket.get(bucket).map(_.map(_._2)).filter(_.nonEmpty) match
-                    case Some(items) => Chunk(s"### $bucket", "") ++ items.map(i => s"- $i") ++ Chunk("")
-                    case None        => Chunk.empty
-            }.mkString("\n")
+            Changelog.Buckets
+                .flatMap { bucket =>
+                    byBucket.get(bucket).map(_.map(_._2)).filter(_.nonEmpty) match
+                        case Some(items) => Chunk(s"### $bucket", "") ++ items.map(i => s"- $i") ++ Chunk("")
+                        case None        => Chunk.empty
+                }
+                .mkString("\n")
         }
 
     private def describe(raw: String, c: Maybe[ConventionalCommit]): String =
@@ -82,7 +84,11 @@ object Notes:
         }
 
     private def renderSection(s: Section): String =
-        s.buckets.filter(_.entries.nonEmpty).flatMap { b =>
-            Chunk(s"### ${b.name}", "") ++ b.entries.map(e => s"- $e") ++ Chunk("")
-        }.mkString("\n").trim
+        s.buckets
+            .filter(_.entries.nonEmpty)
+            .flatMap { b =>
+                Chunk(s"### ${b.name}", "") ++ b.entries.map(e => s"- $e") ++ Chunk("")
+            }
+            .mkString("\n")
+            .trim
 end Notes

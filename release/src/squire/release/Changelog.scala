@@ -30,9 +30,9 @@ object Changelog:
     /** `## [<version>]` with an optional ` - <date>` suffix. */
     private def versionParser(using Frame): LineKind < Parse[Char] =
         for
-            _    <- Parse.literal("## [")
-            ver  <- Parse.regex("[^]]+".r)
-            _    <- Parse.literal("]")
+            _   <- Parse.literal("## [")
+            ver <- Parse.regex("[^]]+".r)
+            _   <- Parse.literal("]")
             date <- Parse.attempt(
                 for
                     _ <- Parse.literal(" - ")
@@ -56,11 +56,12 @@ object Changelog:
         if t.isEmpty then LineKind.Blank
         else if t.startsWith("- ") then LineKind.Entry(t.drop(2).trim)
         else
-            Parse.runResult(t)(Parse.firstOf(versionParser, bucketParser))
+            Parse
+                .runResult(t)(Parse.firstOf(versionParser, bucketParser))
                 .map(_.out.getOrElse(LineKind.Other(line)))
 
     /** Outer-fold accumulator: completed sections plus the in-progress section and bucket. */
-    private final case class State(
+    final private case class State(
         header: Chunk[String],
         done: Chunk[Section],
         curVersion: Maybe[String],
@@ -71,7 +72,9 @@ object Changelog:
     )
 
     private object State:
-        val empty: State = State(Chunk.empty, Chunk.empty, Maybe.empty, Maybe.empty, Chunk.empty, Maybe.empty, Chunk.empty)
+
+        val empty: State =
+            State(Chunk.empty, Chunk.empty, Maybe.empty, Maybe.empty, Chunk.empty, Maybe.empty, Chunk.empty)
 
     private def flushBucket(st: State): State =
         st.curBucketName match
@@ -162,9 +165,9 @@ object Changelog:
             )
             cl.copy(sections = emptyUnreleased +: moved)
 
-    /** Assess structural release-readiness: the `[Unreleased]` section must exist and carry every
-      * canonical bucket. An empty `[Unreleased]` is reported (via `unreleasedEntryCount`) but is not
-      * a problem, since content readiness is left to the caller.
+    /** Assess structural release-readiness: the `[Unreleased]` section must exist and carry every canonical bucket. An
+      * empty `[Unreleased]` is reported (via `unreleasedEntryCount`) but is not a problem, since content readiness is
+      * left to the caller.
       */
     def readiness(cl: Changelog): Readiness =
         extractSection(cl, "Unreleased") match

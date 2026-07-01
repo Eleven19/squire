@@ -15,13 +15,15 @@ object Smoke:
     final case class Check(name: String, ok: Boolean, detail: String) derives CanEqual
 
     private def run(cwd: kyo.Path, cmd: String*)(using Frame): (Boolean, String) < (Async & Abort[String]) =
-        Abort.run[CommandException] {
-            Command(cmd*).cwd(cwd).redirectErrorStream(true).textWithExitCode
-        }.map {
-            case Result.Success((out: String, code: ExitCode)) => (code.isSuccess, out.trim)
-            case Result.Failure(e)                             => (false, e.toString)
-            case Result.Panic(t)                               => (false, t.toString)
-        }
+        Abort
+            .run[CommandException] {
+                Command(cmd*).cwd(cwd).redirectErrorStream(true).textWithExitCode
+            }
+            .map {
+                case Result.Success((out: String, code: ExitCode)) => (code.isSuccess, out.trim)
+                case Result.Failure(e)                             => (false, e.toString)
+                case Result.Panic(t)                               => (false, t.toString)
+            }
 
     /** The release asset name for the current platform, matching the published GitHub release assets. */
     def platformAsset: String =
@@ -62,14 +64,16 @@ object Smoke:
                     .map(bytes => new String(bytes.toArray, java.nio.charset.StandardCharsets.UTF_8).trim)
             }
 
-        Abort.run[CommandException | Timeout] {
-            Async.timeout(15.seconds)(firstLine)
-        }.map {
-            case Result.Success(line) =>
-                (line.contains("\"result\"") && line.contains("\"jsonrpc\""), line.take(200))
-            case Result.Failure(_: Timeout) => (false, "mcp initialize timed out")
-            case Result.Failure(e)          => (false, e.toString)
-            case Result.Panic(t)            => (false, t.toString)
-        }
+        Abort
+            .run[CommandException | Timeout] {
+                Async.timeout(15.seconds)(firstLine)
+            }
+            .map {
+                case Result.Success(line) =>
+                    (line.contains("\"result\"") && line.contains("\"jsonrpc\""), line.take(200))
+                case Result.Failure(_: Timeout) => (false, "mcp initialize timed out")
+                case Result.Failure(e)          => (false, e.toString)
+                case Result.Panic(t)            => (false, t.toString)
+            }
     end mcpHandshake
 end Smoke

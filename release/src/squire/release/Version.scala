@@ -11,6 +11,7 @@ final case class SemVer(
 ) derives CanEqual:
     def isPrerelease: Boolean = prerelease.isDefined
     def core: SemVer          = copy(prerelease = Maybe.empty, build = Maybe.empty)
+
     override def toString =
         val pre = prerelease.map(p => s"-$p").getOrElse("")
         val b   = build.map(m => s"+$m").getOrElse("")
@@ -67,13 +68,15 @@ object Version:
     def parseTag(tag: String): Maybe[SemVer] =
         tag.trim match
             case tagRe(a, b, c, pre, build) =>
-                Maybe(SemVer(
-                    a.toInt,
-                    b.toInt,
-                    c.toInt,
-                    if pre == null then Maybe.empty else Maybe(pre),
-                    if build == null then Maybe.empty else Maybe(build)
-                ))
+                Maybe(
+                    SemVer(
+                        a.toInt,
+                        b.toInt,
+                        c.toInt,
+                        if pre == null then Maybe.empty else Maybe(pre),
+                        if build == null then Maybe.empty else Maybe(build)
+                    )
+                )
             case _ => Maybe.empty
 
     def bumpOf(c: Maybe[ConventionalCommit]): Bump =

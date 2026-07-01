@@ -16,8 +16,10 @@ object InfoCommand extends KyoCommand[InfoOptions]:
                 s"""{"name":"${BuildInfo.name}","version":"${BuildInfo.version}","scala":"${BuildInfo.scalaVersion}","jvm":"$jvm"}"""
             )
         else
-            Console.printLine(s"${BuildInfo.name} ${BuildInfo.version}").andThen(
-                Console.printLine(s"scala ${BuildInfo.scalaVersion}  jvm $jvm")
-            )
+            Console
+                .printLine(s"${BuildInfo.name} ${BuildInfo.version}")
+                .andThen(
+                    Console.printLine(s"scala ${BuildInfo.scalaVersion}  jvm $jvm")
+                )
     }
 end InfoCommand

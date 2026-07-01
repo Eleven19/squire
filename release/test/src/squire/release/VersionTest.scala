@@ -4,6 +4,7 @@ import kyo.*
 import kyo.test.Test
 
 class VersionTest extends Test[Any]:
+
     private def cc(s: String): ConventionalCommit =
         val parts = s.split(":", 2)
         ConventionalCommit(parts(0).stripSuffix("!"), Maybe.empty, s.takeWhile(_ != ':').endsWith("!"), parts(1).trim)
@@ -16,7 +17,9 @@ class VersionTest extends Test[Any]:
         }
         "parseTag parses prerelease and build, and round-trips toString" in {
             assert(Version.parseTag("v1.2.3-rc.1") == Maybe(SemVer(1, 2, 3, Maybe("rc.1"))))
-            assert(Version.parseTag("1.0.0-alpha.1+build.5") == Maybe(SemVer(1, 0, 0, Maybe("alpha.1"), Maybe("build.5"))))
+            assert(
+                Version.parseTag("1.0.0-alpha.1+build.5") == Maybe(SemVer(1, 0, 0, Maybe("alpha.1"), Maybe("build.5")))
+            )
             assert(SemVer(1, 2, 3, Maybe("rc.1")).toString == "1.2.3-rc.1")
             assert(SemVer(1, 0, 0, Maybe("alpha.1"), Maybe("build.5")).toString == "1.0.0-alpha.1+build.5")
             assert(Version.parseTag(SemVer(2, 0, 0, Maybe("rc.2")).toString) == Maybe(SemVer(2, 0, 0, Maybe("rc.2"))))

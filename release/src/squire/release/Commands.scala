@@ -21,8 +21,8 @@ object Commands:
     private def readChangelog(using Frame): Changelog < (Async & Abort[String]) =
         Sync.defer(java.nio.file.Files.readString((root / "CHANGELOG.md").toJava)).map(Changelog.parse)
 
-    /** The next version, the commit count since the previous tag, and how many of those commits are
-      * not Conventional Commits. `next`/`version`/`promote`/`ready` all derive from this.
+    /** The next version, the commit count since the previous tag, and how many of those commits are not Conventional
+      * Commits. `next`/`version`/`promote`/`ready` all derive from this.
       */
     def commitStats(using Frame): (SemVer, Int, Int) < (Async & Abort[String]) =
         Notes.previousTag(root).map { prev =>
@@ -49,28 +49,29 @@ object Commands:
         else gitDescribe.map(d => Console.printLine(d.getOrElse("0.0.0")))
 
     private def gitDescribe(using Frame): Maybe[String] < (Async & Abort[String]) =
-        Abort.run[CommandException] {
-            Command("git", "describe", "--tags", "--long").cwd(root).redirectErrorStream(true).textWithExitCode
-        }.map {
-            case Result.Success((out: String, code: ExitCode)) if code.isSuccess => Maybe(out.trim)
-            case _                                                               => Maybe.empty
-        }
+        Abort
+            .run[CommandException] {
+                Command("git", "describe", "--tags", "--long").cwd(root).redirectErrorStream(true).textWithExitCode
+            }
+            .map {
+                case Result.Success((out: String, code: ExitCode)) if code.isSuccess => Maybe(out.trim)
+                case _                                                               => Maybe.empty
+            }
 
     /** Validate that CHANGELOG.md carries a dated section for `v`. */
     def check(v: String)(using Frame): Unit < (Async & Abort[String]) =
         readChangelog.map(cl => Changelog.validate(cl, v)).map(_ => Console.printLine(s"CHANGELOG [$v] OK"))
 
-    /** Report changelog release-readiness. Fails on structural problems (missing `[Unreleased]` or a
-      * missing canonical bucket); an empty `[Unreleased]` and commit stats are reported but do not fail.
+    /** Report changelog release-readiness. Fails on structural problems (missing `[Unreleased]` or a missing canonical
+      * bucket); an empty `[Unreleased]` and commit stats are reported but do not fail.
       */
     def ready(json: Boolean)(using Frame): Unit < (Async & Abort[String]) =
         readChangelog.map { cl =>
             val r = Changelog.readiness(cl)
             commitStats.map { case (nextV, total, nonConv) =>
-                val report = if json then jsonReport(r, nextV, total, nonConv) else humanReport(r, nextV, total, nonConv)
-                Console.printLine(report).map(_ =>
-                    if r.ready then () else Abort.fail("CHANGELOG is not release-ready")
-                )
+                val report =
+                    if json then jsonReport(r, nextV, total, nonConv) else humanReport(r, nextV, total, nonConv)
+                Console.printLine(report).map(_ => if r.ready then () else Abort.fail("CHANGELOG is not release-ready"))
             }
         }
 
@@ -81,13 +82,16 @@ object Commands:
                 val kept = Changelog.Buckets.size - r.missingBuckets.size
                 s"[Unreleased]: present, $kept/${Changelog.Buckets.size} buckets, ${r.unreleasedEntryCount} entries"
             else "[Unreleased]: absent"
-        val commits  = s"Next version: $nextV ($total commits since last tag, $nonConv non-conventional)"
-        val problems = if r.problems.isEmpty then "" else r.problems.map(p => s"\n  - $p").mkString("\nProblems:", "", "")
+        val commits = s"Next version: $nextV ($total commits since last tag, $nonConv non-conventional)"
+        val problems =
+            if r.problems.isEmpty then "" else r.problems.map(p => s"\n  - $p").mkString("\nProblems:", "", "")
         s"$status\n  $unl\n  $commits$problems"
 
     private def jsonReport(r: Readiness, nextV: SemVer, total: Int, nonConv: Int): String =
         def arr(xs: Chunk[String]): String = xs.map(x => s"\"${x.replace("\"", "\\\"")}\"").mkString("[", ",", "]")
-        s"""{"ready":${r.ready},"unreleasedPresent":${r.unreleasedPresent},"missingBuckets":${arr(r.missingBuckets)},""" +
+        s"""{"ready":${r.ready},"unreleasedPresent":${r.unreleasedPresent},"missingBuckets":${arr(
+                r.missingBuckets
+            )},""" +
             s""""unreleasedEntries":${r.unreleasedEntryCount},"nextVersion":"$nextV",""" +
             s""""commitsSinceTag":$total,"nonConventional":$nonConv,"problems":${arr(r.problems)}}"""
 
@@ -114,7 +118,9 @@ object Commands:
                 val d        = date.getOrElse(java.time.LocalDate.now.toString)
                 val promoted = Changelog.promote(cl, v, d)
                 Sync.defer(java.nio.file.Files.writeString((root / "CHANGELOG.md").toJava, Changelog.render(promoted)))
-                    .map(_ => Console.printLine(s"Promoted Unreleased -> [$v] - $d. Next: git tag v$v && git push origin v$v"))
+                    .map(_ =>
+                        Console.printLine(s"Promoted Unreleased -> [$v] - $d. Next: git tag v$v && git push origin v$v")
+                    )
             }
         }
 
@@ -122,7 +128,9 @@ object Commands:
     def smoke(v: String, bin: Maybe[String])(using Frame): Unit < (Async & Abort[String]) =
         resolveBin(v, bin).map { binPath =>
             Smoke.checks(root, binPath).map { checks =>
-                Kyo.foreach(checks)(c => Console.printLine(s"[${if c.ok then "PASS" else "FAIL"}] ${c.name}: ${c.detail}")).map { _ =>
+                Kyo.foreach(checks)(c =>
+                    Console.printLine(s"[${if c.ok then "PASS" else "FAIL"}] ${c.name}: ${c.detail}")
+                ).map { _ =>
                     if checks.forall(_.ok) then () else Abort.fail("one or more smoke checks failed")
                 }
             }
@@ -135,20 +143,24 @@ object Commands:
             case Maybe.Absent =>
                 val asset = Smoke.platformAsset
                 Sync.defer(java.nio.file.Files.createTempDirectory("squire-smoke-").toString).map { tmp =>
-                    Abort.run[CommandException] {
-                        Command("gh", "release", "download", s"v$v", "--pattern", asset, "--dir", tmp).cwd(root).textWithExitCode
-                    }.map {
-                        case Result.Success((_, code: ExitCode)) if code.isSuccess =>
-                            val path = kyo.Path(tmp) / asset
-                            Sync.defer {
-                                if !sys.props.getOrElse("os.name", "").toLowerCase.contains("win") then
-                                    java.nio.file.Files.setPosixFilePermissions(
-                                        path.toJava,
-                                        java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x")
-                                    )
-                                path
-                            }
-                        case other => Abort.fail(s"failed to download $asset for v$v: $other")
-                    }
+                    Abort
+                        .run[CommandException] {
+                            Command("gh", "release", "download", s"v$v", "--pattern", asset, "--dir", tmp)
+                                .cwd(root)
+                                .textWithExitCode
+                        }
+                        .map {
+                            case Result.Success((_, code: ExitCode)) if code.isSuccess =>
+                                val path = kyo.Path(tmp) / asset
+                                Sync.defer {
+                                    if !sys.props.getOrElse("os.name", "").toLowerCase.contains("win") then
+                                        java.nio.file.Files.setPosixFilePermissions(
+                                            path.toJava,
+                                            java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x")
+                                        )
+                                    path
+                                }
+                            case other => Abort.fail(s"failed to download $asset for v$v: $other")
+                        }
                 }
 end Commands
