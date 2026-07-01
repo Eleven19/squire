@@ -1,0 +1,17 @@
+package build.release
+import mill.*, scalalib.*
+
+// Internal release/changelog tooling. NOT published and not a dependency of squire.core/tools/cli.
+object `package` extends millbuild.SquireModule {
+  def mvnDeps = Seq(
+    kyoDep("kyo-core"),
+    kyoDep("kyo-parse"),
+    kyoDep("kyo-case-app")
+  )
+  def mainClass = Some("squire.release.Main")
+
+  object test extends ScalaTests with TestModule {
+    def mvnDeps       = Seq(kyoDep("kyo-test-runner"))
+    def testFramework = "kyo.test.runner.SbtFramework"
+  }
+}

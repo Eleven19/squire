@@ -5,6 +5,6 @@ import kyo.test.Test
 class SquireTest extends Test[Any]:
 
     "Squire" - {
-        "greeting names the subject" in
-            assert(Squire.greeting("squire") == "Hello, squire!")
+        "exposes the project name" in
+            assert(Squire.name == "squire")
     }
