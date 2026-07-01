@@ -27,7 +27,7 @@ onward, commits follow [Conventional Commits](https://www.conventionalcommits.or
 - Cross-harness codegen subsystem generating per-harness adapters under `dist/` and the marketplace index.
 - CLI packaging and publication: fat assembly jar, GraalVM native images for four platforms, launcher scripts, and decoupled GitHub Release plus Maven Central publish paths.
 - `squire info` command with human and `--json` output.
-- Conventional-commit-driven release tooling: the `release` Mill module (`./mill release.run next|version|check|notes|promote|smoke`) producing Keep a Changelog notes and SemVer versions.
+- Conventional-commit-driven release tooling: the `release` Mill module (`./mill release.run next|version|ready|check|notes|promote|smoke`) producing Keep a Changelog notes and SemVer versions.
 
 ### Changed
 

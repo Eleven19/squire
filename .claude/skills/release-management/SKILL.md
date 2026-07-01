@@ -11,26 +11,32 @@ result. The full reference lives in `docs/contributing/releasing.md`.
 
 ## Prep
 
-1. Preview the next version from the commit history:
+1. Confirm the changelog is release-ready (fails on a missing `[Unreleased]` or bucket):
+
+   ```bash
+   ./mill release.run ready
+   ```
+
+2. Preview the next version from the commit history:
 
    ```bash
    ./mill release.run next
    ```
 
-2. Promote `[Unreleased]` into a dated section (no argument derives the version):
+3. Promote `[Unreleased]` into a dated section (no argument derives the version):
 
    ```bash
    ./mill release.run promote
    ```
 
-3. Confirm codegen is in sync:
+4. Confirm codegen is in sync:
 
    ```bash
    ./mill skills.generateAll
    git diff --exit-code dist .claude-plugin/marketplace.json
    ```
 
-4. Review the assembled notes:
+5. Review the assembled notes:
 
    ```bash
    ./mill release.run notes <version>

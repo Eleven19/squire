@@ -19,6 +19,8 @@ or CI in a way that should appear in release notes.
 ## Verification
 
 ```bash
-rg -n "^## \[Unreleased\]" CHANGELOG.md
-./mill release.run check <version>   # only when a release section exists
+./mill release.run ready
 ```
+
+`ready` parses `CHANGELOG.md` and fails if the `[Unreleased]` section or any canonical bucket is
+missing. Use `./mill release.run check <version>` instead once a dated release section exists.

@@ -126,7 +126,8 @@ Confirm the changelog is well-formed and that a release section will satisfy the
 release gate:
 
 ```bash
-./mill release.run check <version>
+./mill release.run ready             # structure check: [Unreleased] present, all buckets
+./mill release.run check <version>   # gate: a dated [version] section exists
 ./mill release.run notes <version>
 ```
 
