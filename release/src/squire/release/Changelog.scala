@@ -6,6 +6,15 @@ final case class Bucket(name: String, entries: Chunk[String]) derives CanEqual
 final case class Section(version: String, date: Maybe[String], buckets: Chunk[Bucket]) derives CanEqual
 final case class Changelog(header: String, sections: Chunk[Section]) derives CanEqual
 
+/** Structural release-readiness of a changelog: whether `[Unreleased]` is present and well-formed. */
+final case class Readiness(
+    unreleasedPresent: Boolean,
+    missingBuckets: Chunk[String],
+    unreleasedEntryCount: Int,
+    problems: Chunk[String]
+) derives CanEqual:
+    def ready: Boolean = problems.isEmpty
+
 object Changelog:
     /** Bucket order shared with the conventional-commit mapping. */
     val Buckets: Chunk[String] = Chunk("Added", "Changed", "Fixed", "Documentation", "CI")
@@ -152,4 +161,19 @@ object Changelog:
                 if s.version == "Unreleased" then s.copy(version = version, date = Maybe(date)) else s
             )
             cl.copy(sections = emptyUnreleased +: moved)
+
+    /** Assess structural release-readiness: the `[Unreleased]` section must exist and carry every
+      * canonical bucket. An empty `[Unreleased]` is reported (via `unreleasedEntryCount`) but is not
+      * a problem, since content readiness is left to the caller.
+      */
+    def readiness(cl: Changelog): Readiness =
+        extractSection(cl, "Unreleased") match
+            case Maybe.Absent =>
+                Readiness(false, Buckets, 0, Chunk("CHANGELOG has no [Unreleased] section"))
+            case Maybe.Present(s) =>
+                val present  = s.buckets.map(_.name).toSet
+                val missing  = Buckets.filterNot(present.contains)
+                val count    = s.buckets.map(_.entries.size).sum
+                val problems = missing.map(b => s"[Unreleased] is missing the '$b' bucket")
+                Readiness(true, missing, count, problems)
 end Changelog

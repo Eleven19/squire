@@ -92,5 +92,52 @@ class ChangelogTest extends Test[Any]:
                 case other => fail(s"$other")
             }
         }
+        "readiness passes for a well-formed changelog with an empty Unreleased" in {
+            Abort.run[String](Changelog.parse(sample)).map {
+                case Result.Success(cl) =>
+                    val r = Changelog.readiness(cl)
+                    assert(r.ready)
+                    assert(r.unreleasedPresent)
+                    assert(r.missingBuckets == Chunk.empty)
+                    assert(r.unreleasedEntryCount == 0)
+                    assert(r.problems == Chunk.empty)
+                case other => fail(s"$other")
+            }
+        }
+        "readiness counts Unreleased entries" in {
+            Abort.run[String](Changelog.parse(sample)).map {
+                case Result.Success(cl) =>
+                    val withEntries = cl.copy(sections = cl.sections.map(s =>
+                        if s.version == "Unreleased" then
+                            s.copy(buckets = s.buckets.map(b =>
+                                if b.name == "Added" then b.copy(entries = Chunk("A", "B")) else b))
+                        else s))
+                    assert(Changelog.readiness(withEntries).unreleasedEntryCount == 2)
+                case other => fail(s"$other")
+            }
+        }
+        "readiness fails when Unreleased is absent" in {
+            Abort.run[String](Changelog.parse(sample)).map {
+                case Result.Success(cl) =>
+                    val noUnreleased = cl.copy(sections = cl.sections.filterNot(_.version == "Unreleased"))
+                    val r            = Changelog.readiness(noUnreleased)
+                    assert(!r.ready)
+                    assert(!r.unreleasedPresent)
+                    assert(r.problems == Chunk("CHANGELOG has no [Unreleased] section"))
+                case other => fail(s"$other")
+            }
+        }
+        "readiness fails when Unreleased is missing a canonical bucket" in {
+            Abort.run[String](Changelog.parse(sample)).map {
+                case Result.Success(cl) =>
+                    val dropFixed = cl.copy(sections = cl.sections.map(s =>
+                        if s.version == "Unreleased" then s.copy(buckets = s.buckets.filterNot(_.name == "Fixed"))
+                        else s))
+                    val r = Changelog.readiness(dropFixed)
+                    assert(!r.ready)
+                    assert(r.missingBuckets == Chunk("Fixed"))
+                case other => fail(s"$other")
+            }
+        }
     }
 end ChangelogTest

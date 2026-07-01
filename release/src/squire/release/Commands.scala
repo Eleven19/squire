@@ -21,14 +21,23 @@ object Commands:
     private def readChangelog(using Frame): Changelog < (Async & Abort[String]) =
         Sync.defer(java.nio.file.Files.readString((root / "CHANGELOG.md").toJava)).map(Changelog.parse)
 
-    /** Compute the next version from the commits since the previous tag (or 0.0.0 when there is no tag). */
-    def computeNext(using Frame): SemVer < (Async & Abort[String]) =
+    /** The next version, the commit count since the previous tag, and how many of those commits are
+      * not Conventional Commits. `next`/`version`/`promote`/`ready` all derive from this.
+      */
+    def commitStats(using Frame): (SemVer, Int, Int) < (Async & Abort[String]) =
         Notes.previousTag(root).map { prev =>
             val last = prev.flatMap(t => Version.parseTag(t)).getOrElse(SemVer(0, 0, 0))
             Notes.commitSubjects(root).map { subjects =>
-                Kyo.foreach(subjects)(ConventionalCommit.parse).map(parsed => Version.nextVersion(last, parsed))
+                Kyo.foreach(subjects)(ConventionalCommit.parse).map { parsed =>
+                    val nonConv = parsed.count(m => !m.isDefined)
+                    (Version.nextVersion(last, parsed), subjects.size, nonConv)
+                }
             }
         }
+
+    /** Compute the next version from the commits since the previous tag (or 0.0.0 when there is no tag). */
+    def computeNext(using Frame): SemVer < (Async & Abort[String]) =
+        commitStats.map(_._1)
 
     /** Print the computed next version. */
     def next(using Frame): Unit < (Async & Abort[String]) =
@@ -50,6 +59,37 @@ object Commands:
     /** Validate that CHANGELOG.md carries a dated section for `v`. */
     def check(v: String)(using Frame): Unit < (Async & Abort[String]) =
         readChangelog.map(cl => Changelog.validate(cl, v)).map(_ => Console.printLine(s"CHANGELOG [$v] OK"))
+
+    /** Report changelog release-readiness. Fails on structural problems (missing `[Unreleased]` or a
+      * missing canonical bucket); an empty `[Unreleased]` and commit stats are reported but do not fail.
+      */
+    def ready(json: Boolean)(using Frame): Unit < (Async & Abort[String]) =
+        readChangelog.map { cl =>
+            val r = Changelog.readiness(cl)
+            commitStats.map { case (nextV, total, nonConv) =>
+                val report = if json then jsonReport(r, nextV, total, nonConv) else humanReport(r, nextV, total, nonConv)
+                Console.printLine(report).map(_ =>
+                    if r.ready then () else Abort.fail("CHANGELOG is not release-ready")
+                )
+            }
+        }
+
+    private def humanReport(r: Readiness, nextV: SemVer, total: Int, nonConv: Int): String =
+        val status = if r.ready then "READY" else "NOT READY"
+        val unl =
+            if r.unreleasedPresent then
+                val kept = Changelog.Buckets.size - r.missingBuckets.size
+                s"[Unreleased]: present, $kept/${Changelog.Buckets.size} buckets, ${r.unreleasedEntryCount} entries"
+            else "[Unreleased]: absent"
+        val commits  = s"Next version: $nextV ($total commits since last tag, $nonConv non-conventional)"
+        val problems = if r.problems.isEmpty then "" else r.problems.map(p => s"\n  - $p").mkString("\nProblems:", "", "")
+        s"$status\n  $unl\n  $commits$problems"
+
+    private def jsonReport(r: Readiness, nextV: SemVer, total: Int, nonConv: Int): String =
+        def arr(xs: Chunk[String]): String = xs.map(x => s"\"${x.replace("\"", "\\\"")}\"").mkString("[", ",", "]")
+        s"""{"ready":${r.ready},"unreleasedPresent":${r.unreleasedPresent},"missingBuckets":${arr(r.missingBuckets)},""" +
+            s""""unreleasedEntries":${r.unreleasedEntryCount},"nextVersion":"$nextV",""" +
+            s""""commitsSinceTag":$total,"nonConventional":$nonConv,"problems":${arr(r.problems)}}"""
 
     /** Build the release notes for `v` and write them under `out/`. */
     def notes(v: String)(using Frame): Unit < (Async & Abort[String]) =
