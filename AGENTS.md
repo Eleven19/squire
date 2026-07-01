@@ -133,9 +133,8 @@ squire is functional-first and leans on **kyo** as its standard library.
   shared logic + code-gen in the `mill-build/` meta-build (`millbuild.*`).
 - **JDK 25+ is the project minimum** (Java 25 LTS); `mill-jvm-version: temurin:25`, modules
   compile with `-release:25`.
-- Scala 3.8.4. kyo resolved from `https://central.sonatype.com/repository/maven-snapshots/`,
-  pinned to an exact dynver snapshot string (kyo's snapshot `maven-metadata.xml` can be
-  stale, never rely on it to pick "latest").
+- Scala 3.8.4. kyo pinned to a released version (`1.0.0-RC5`) resolved from Maven Central; the
+  version lives in `millbuild.SquireModule.kyoVersion`. No snapshot repository is used.
 - Common tasks: `./mill resolve _`, `./mill squire.cli.run info`, `./mill squire.cli.run mcp`,
   `./mill __.test`.
 - The generated `dist/` tree and `.claude-plugin/marketplace.json` are checked in and
